@@ -13,7 +13,6 @@ Needs Chrome/Chromium/Edge, sadly firefox doesn't support WebUSB.
 index.html            Single-file browser app: tiles, graph, contract, sniffer, debug
 71-powerz.rules     Linux udev rule for 5FC9:0061/0063
 docs/PROTOCOL.md      Byte maps, init sequence, R3.2 PDO layouts, quirks
-docs/upstream-protocol-reference.md  Vendored upstream KM003C protocol reference (do not edit)
 docs/screenshot.png   Live view screenshot (shown above)
 ```
 
