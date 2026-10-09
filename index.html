@@ -41,7 +41,7 @@ select{background:#111;color:var(--txt);border:1px solid var(--line);border-radi
 #tVbus .val small,#tIbus .val small,#tPwr .val small{font-size:1.8rem}
 #tVbus .unit,#tIbus .unit,#tPwr .unit{font-size:1.3rem}
 #tVbus{background:linear-gradient(135deg,#35a487,#2b8a72)}#tIbus{background:linear-gradient(135deg,#d9798b,#c05f73)}#tPwr{background:linear-gradient(135deg,#4a9fd8,#3579ad)}#tSub{background:linear-gradient(135deg,#5a5f66,#43474d)}
-#tSub .val{font-size:.95rem;font-weight:500;line-height:1.6}
+#tSub .val{font-size:.95rem;font-weight:500;line-height:1.6;font-variant-numeric:tabular-nums}
 @media(max-width:700px){#dash{grid-template-columns:1fr 1fr}.tile .val{font-size:1.4rem}#tVbus .val,#tIbus .val,#tPwr .val{font-size:2.1rem}}
 #liveStat{color:var(--mut);font-size:.85rem}
 #graphWrap{position:relative;margin:.2rem 0 .5rem;--gh:220px}
@@ -131,6 +131,13 @@ details.card summary{color:#cfd3d8}
 <div class="row" style="margin-top:.5rem">
 <input id="serCmd" placeholder="custom command, e.g. pd req=2,cur=20000" style="flex:1;min-width:12rem;background:#111;color:var(--txt);border:1px solid var(--line);border-radius:.4rem;padding:.4rem .6rem">
 <button id="serSend">Send</button>
+<button id="serHelp" title="Serial command help">?</button>
+</div>
+<div id="serHelpBox" style="display:none;margin-top:.5rem;font-size:.8rem;color:var(--mut);border:1px solid var(--line);border-radius:.5rem;padding:.6rem .8rem;line-height:1.7">
+<b style="color:var(--txt)">Session</b>: <code>pdm open</code> · <code>pdm close</code> · <code>pdm set type=?,em=?</code> (type 0 auto, 1 PD3.0, 2 PD3.1, 3 priv-PPS; em 0 off, 1 20V5A, 2 50V5A EPR)<br>
+<b style="color:var(--txt)">PD</b>: <code>entry pd</code> then <code>pd pdo</code> (Source_Cap) · <code>pd req=?,cur=?</code> (req = PDO#, e.g. <code>pd req=2,cur=20000</code>) · <code>pd req=?,volt=?,cur=?</code> (PPS/AVS, e.g. <code>pd req=5,volt=12000,cur=20000</code>) · <code>pd cmd=?</code> · <code>pd data=?</code> (1st byte SOP, next 2 header, no CRC)<br>
+<b style="color:var(--txt)">QC</b>: <code>qc 9V</code> · <code>qc3 volt=5000</code> (3600–20000mV) · <code>qc3 inc=8</code> / <code>qc3 dec=6</code> &nbsp; <b style="color:var(--txt)">Others</b>: <code>entry qc|fcp|scp|afc|vfcp|sfcp|ufcs</code> then <code>fcp 9V</code> · <code>scp volt=?,cur=?</code> · <code>vfcp volt=?,cur=?</code> · <code>ufcs pdo</code> · <code>reset</code><br>
+<small>Units are mV/mA. An open PDM session owns the PD engine (charger parks at 5V) — Exit PDM when done. <code>help</code>/<code>reboot</code> get no reply on this firmware. Full syntax: <a href="https://github.com/okhsunrog/km003c-protocol-research/blob/main/docs/official/KM003C_002C%20Protocol%20Trigger%20by%20Virtual%20Serial%20Port%20(Instructions).pdf" style="color:var(--acc)">official virtual-serial trigger doc (PDF)</a>.</small>
 </div>
 </section>
 
@@ -327,7 +334,10 @@ function paintLive(d) {
   const tC = d.tempC != null ? d.tempC : lastTempC; // stream frames carry no temp — hold the last single-shot reading
   const tOk = tC != null && tC > -100 && tC < 150; // raw 0x8000 (-256°C) = no sensor data
   document.getElementById('vSub').innerHTML =
-    `DP:${d.vdp.toFixed(3)}V&nbsp;&nbsp;CC1:${d.vcc1.toFixed(3)}V<br>DM:${d.vdm.toFixed(3)}V&nbsp;&nbsp;CC2:${d.vcc2.toFixed(3)}V<br>TEMP:${tOk ? tC.toFixed(1) + '°C' : '—'}`;
+    `<span style="display:inline-grid;grid-template-columns:auto auto;column-gap:.9em">` +
+    `<span>DP:${d.vdp.toFixed(3)}V</span><span>CC1:${d.vcc1.toFixed(3)}V</span>` +
+    `<span>DM:${d.vdm.toFixed(3)}V</span><span>CC2:${d.vcc2.toFixed(3)}V</span>` +
+    `<span style="grid-column:1/-1">TEMP:${tOk ? tC.toFixed(1) + '°C' : '—'}</span></span>`;
 }
 async function liveOnce() {
   return usbExcl(async () => {
@@ -1425,6 +1435,10 @@ document.getElementById('serSend').onclick = async () => {
 document.getElementById('serCmd').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('serSend').click();
 });
+document.getElementById('serHelp').onclick = () => {
+  const box = document.getElementById('serHelpBox');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+};
 document.getElementById('serExit').onclick = async () => {
   log('>', 'pdm close'); await serWrite('pdm close');
   await new Promise(r => setTimeout(r, 600));
