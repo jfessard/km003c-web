@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>re-charge — POWER-Z browser app</title>
+<style>
+:root{--bg:#191b1e;--card:#23262b;--line:#33373e;--txt:#e8eaed;--mut:#9aa0a6;--acc:#4a9fd8}
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;max-width:960px;margin:0 auto;padding:1.5rem 1rem 3rem;background:var(--bg);color:var(--txt)}
+header{display:flex;align-items:baseline;gap:.75rem;flex-wrap:wrap;margin-bottom:.25rem}
+h1{font-size:1.4rem;margin:0}
+h1 .pill{font-size:.75rem;background:#2f6f4f;border-radius:99px;padding:.15rem .6rem;vertical-align:middle}
+.sub{color:var(--mut);font-size:.85rem;margin:.25rem 0 1rem}
+.sub code{background:#111;border:1px solid var(--line);border-radius:.3rem;padding:.05rem .35rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:.8rem;padding:1rem;margin:0 0 1rem}
+.card h2{font-size:1rem;margin:0 0 .6rem;color:#cfd3d8}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+button{background:#2e3238;color:var(--txt);border:1px solid #454b54;border-radius:.5rem;margin:.15rem;padding:.45rem .9rem;cursor:pointer;font-size:.9rem}
+button:hover{background:#3a4047;border-color:#5a636e}
+button.primary{background:#1f6feb;border-color:#1f6feb}
+button.primary:hover{background:#2b7fff}
+button.danger{background:transparent}
+button:disabled{opacity:.4;cursor:not-allowed}
+select:disabled{opacity:.45}
+#liveUsbClose .slash{display:none}
+#liveUsbClose:disabled .slash{display:inline}
+select{background:#111;color:var(--txt);border:1px solid var(--line);border-radius:.4rem;padding:.3rem .5rem}
+/* log: fixed size, scrolls internally */
+#log{background:#0d0f12;color:#7dffa8;border:1px solid var(--line);border-radius:.6rem;padding:.75rem 1rem;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-all;height:280px;max-height:40vh;overflow-y:auto;overflow-x:hidden;margin:0}
+#pdRaw{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-all;overflow:auto}
+.logbar{display:flex;justify-content:space-between;align-items:center;margin:0 0 .4rem}
+/* live dashboard, Mtools-style */
+#dash{display:grid;grid-template-columns:1.2fr 1.2fr 1.2fr 1.4fr;gap:.6rem;margin:.2rem 0 .8rem}
+.tile{border-radius:.7rem;padding:.6rem .85rem;color:#fff;min-height:5.4rem;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.tile .lbl{font-size:.78rem;opacity:.92;letter-spacing:.08em}
+.tile .val{font-size:1.7rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.tile .val small{font-size:1.25rem;font-weight:700;opacity:1}
+.tile .unit{font-size:1rem;font-weight:600;opacity:.95}
+#tVbus .val,#tIbus .val,#tPwr .val{font-size:2.6rem;white-space:nowrap}
+#tVbus .val small,#tIbus .val small,#tPwr .val small{font-size:1.8rem}
+#tVbus .unit,#tIbus .unit,#tPwr .unit{font-size:1.3rem}
+#tVbus{background:linear-gradient(135deg,#35a487,#2b8a72)}#tIbus{background:linear-gradient(135deg,#d9798b,#c05f73)}#tPwr{background:linear-gradient(135deg,#4a9fd8,#3579ad)}#tSub{background:linear-gradient(135deg,#5a5f66,#43474d)}
+#tSub .val{font-size:.95rem;font-weight:500;line-height:1.6}
+@media(max-width:700px){#dash{grid-template-columns:1fr 1fr}.tile .val{font-size:1.4rem}#tVbus .val,#tIbus .val,#tPwr .val{font-size:2.1rem}}
+#liveStat{color:var(--mut);font-size:.85rem}
+#graphWrap{position:relative;margin:.2rem 0 .5rem;--gh:220px}
+#graph{width:100%;height:var(--gh);display:block;background:#0d0f12;border:1px solid var(--line);border-radius:.6rem}
+#graphTip{position:absolute;left:0;top:0;width:100%;height:var(--gh);cursor:crosshair}
+#graphGrip{position:absolute;right:5px;bottom:5px;width:20px;height:20px;cursor:ns-resize;z-index:3;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:.35rem;background:rgba(90,99,110,.25)}
+#graphGrip:hover{background:rgba(90,99,110,.6)}
+#graphGrip::after{content:'';position:absolute;right:4px;bottom:4px;width:8px;height:8px;border-right:2px solid #9aa0a6;border-bottom:2px solid #9aa0a6;border-bottom-right-radius:2px}
+#graphTipBox{position:absolute;display:none;min-width:8em;background:rgba(25,27,30,.95);border:1px solid #454b54;border-radius:.5rem;padding:.35rem .55rem;font-size:.78rem;color:var(--txt);font-variant-numeric:tabular-nums;pointer-events:none;white-space:nowrap;z-index:2}
+#graphTipBox .sw{display:inline-block;width:.7em;height:.7em;border-radius:2px;margin-right:.3em;vertical-align:baseline}
+#graphTipBox b{font-weight:600}
+#graphTipBox small{color:var(--mut)}
+#graphLegend{display:flex;gap:.9rem;flex-wrap:wrap;font-size:.8rem;color:var(--mut);margin:0 0 .5rem;font-variant-numeric:tabular-nums}
+#graphLegend .sw{display:inline-block;width:.7em;height:.7em;border-radius:2px;margin-right:.3em;vertical-align:baseline}
+#graphLegend b{color:var(--txt);font-weight:600}
+#graphStat{color:var(--mut);font-size:.85rem}
+label.chk{display:inline-flex;gap:.25rem;align-items:center;font-size:.85rem;color:var(--mut)}
+label.chk input{accent-color:var(--acc)}
+label.ser{position:relative;display:inline-flex;align-items:center;font-size:.8rem;font-weight:700;border:1px solid var(--c);border-radius:99px;padding:.22rem .65rem;cursor:pointer;color:var(--c);background:color-mix(in srgb,var(--c) 16%,#111);user-select:none;-webkit-user-select:none}
+label.ser input{position:absolute;opacity:0;pointer-events:none;margin:0}
+label.ser:has(input:not(:checked)){border-color:#454b54;color:var(--mut);background:transparent;font-weight:400}
+label.ser:has(input:focus-visible){outline:2px solid var(--c);outline-offset:2px}
+#serStat{color:var(--mut);font-size:.85rem}
+details.card summary{color:#cfd3d8}
+#pdList div{padding:.15rem 0;border-top:1px solid var(--line)}
+#pdList div:first-child{border-top:none}
+</style>
+</head>
+<body>
+<header><h1>re-charge <span class="pill" id="devPill">POWER-Z</span> <span id="devSerial" style="font-size:.85rem;color:var(--mut)"></span></h1></header>
+
+<section class="card">
+<div id="dash">
+<div class="tile" id="tVbus"><div class="lbl">VBUS</div><div class="val" id="vVbus">— <small>V</small></div></div>
+<div class="tile" id="tIbus"><div class="lbl">IBUS</div><div class="val" id="vIbus">— <small>A</small></div></div>
+<div class="tile" id="tPwr"><div class="lbl">PWR</div><div class="val" id="vPwr">— <small>W</small></div></div>
+<div class="tile" id="tSub"><div class="lbl">SUB</div><div class="val" id="vSub">—</div></div>
+</div>
+<div class="row">
+<button id="liveStart" class="primary">START</button>
+<button id="liveStop">Stop</button>
+<button id="liveUsbClose" class="danger" title="Disconnect WebUSB" style="padding:.45rem .6rem" disabled><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2v4M10 2v4M4 6h8v3a4 4 0 0 1-8 0V6zM8 13v2"/><path class="slash" d="M3 13L13 3"/></svg></button>
+<label title="poll interval — single-shot only; streaming uses a fixed cadence"><small>every</small> <select id="liveRate"><option value="50">50 ms</option><option value="100" selected>100 ms</option><option value="250">250 ms</option><option value="500">500 ms</option><option value="1000">1 s</option></select></label>
+<label><small>mode</small> <select id="liveMode" title="single-shot polls ATT_ADC; stream authenticates then samples at device rate"><option value="ss" selected>single-shot</option><option value="3">stream 1000 SPS</option></select></label>
+<span id="liveStat"><small>idle</small></span>
+</div>
+<div id="graphWrap">
+<canvas id="graph" width="900" height="220"></canvas>
+<canvas id="graphTip" width="900" height="220" title="scroll to zoom · hover for values · double-click resets"></canvas>
+<div id="graphTipBox"></div>
+<div id="graphGrip" title="drag to resize · double-click resets"></div>
+</div>
+<div id="graphLegend"><small>graph idle — start live to plot.</small></div>
+<div class="row" style="margin-top:.2rem">
+<label><small>window</small> <select id="graphWindow"><option value="30" selected>30 s</option><option value="60">1 min</option><option value="300">5 min</option><option value="0">all</option></select></label>
+<label class="ser" style="--c:#3ddc97"><input type="checkbox" id="gV" checked>V</label>
+<label class="ser" style="--c:#e06c7c"><input type="checkbox" id="gI" checked>A</label>
+<label class="ser" style="--c:#4a9fd8"><input type="checkbox" id="gP" checked>W</label>
+<label class="ser" style="--c:#e6c34a" title="CC1 — shares the V scale when V is on, else fixed 0–3V"><input type="checkbox" id="gCC1">CC1</label>
+<label class="ser" style="--c:#9a7bd4" title="CC2 — shares the V scale when V is on, else fixed 0–3V"><input type="checkbox" id="gCC2">CC2</label>
+<label class="chk" title="Zero-based: every Y axis starts at 0, so trace heights show true proportions. Untick to fit each axis to its data instead — small ripple then fills the graph (good for inspecting noise, but exaggerates it)."><input type="checkbox" id="gZero" checked>zero-based</label>
+<button id="graphClear">Clear</button>
+<button id="csvExport">Export CSV</button>
+<span id="graphStat"><small></small></span>
+<span><small style="color:var(--mut)">scroll zooms · hover values · dbl-click resets</small></span>
+</div>
+</section>
+
+<section class="card">
+<h2>Charge contract</h2>
+<p class="sub" style="margin:0 0 .6rem">Reads the charger's PDOs over serial.</p>
+<div class="row">
+<button id="serConnect">Connect charger</button>
+<button id="serPdm" class="primary">Get contract</button>
+<button id="serExit">Exit PDM</button>
+<button id="pdCsv">Export CSV</button>
+<button id="pdClear">Clear</button>
+<button id="pdWatch">Watch wire</button>
+<button id="serClose" class="danger">Close</button>
+<span id="serStat"><small>not connected</small></span>
+<span id="watchStat"><small></small></span>
+</div>
+<div id="pdoActive" style="margin-top:.6rem"><small>active: unknown — Watch wire during plug-in, or Get contract (takes over PD engine)</small></div>
+<div id="pdList" style="margin-top:.6rem"><small>no contract read yet</small></div>
+<div class="row" style="margin-top:.5rem">
+<input id="serCmd" placeholder="custom command, e.g. pd req=2,cur=20000" style="flex:1;min-width:12rem;background:#111;color:var(--txt);border:1px solid var(--line);border-radius:.4rem;padding:.4rem .6rem">
+<button id="serSend">Send</button>
+</div>
+</section>
+
+<section class="card">
+<h2>Recover / reset</h2>
+<p class="sub" style="margin:0 0 .6rem">For a wedged link or PD engine. Reboot needs serial.</p>
+<div class="row">
+<button id="rstUsb">Reset USB link</button>
+<button id="rstSes" title="Sends STOP_GRAPH → RESET(0x04) → CONNECT; each reply is logged (0x04 is undocumented)">Reset session</button>
+<button id="rstBoot" class="danger">Reboot dongle (serial)</button>
+<span id="rstStat"><small></small></span>
+</div>
+</section>
+
+<details class="card">
+<summary style="cursor:pointer;font-weight:600">Debug · manual USB, HID, PD sniffer, log</summary>
+<div style="margin-top:.8rem">
+<h2>WebUSB · WinUSB IF0, bulk 0x01 OUT / 0x81 IN</h2>
+<div class="row">
+<button id="usbConnect">Connect WebUSB</button>
+<button id="usbRead">Send 0C 00 02 00 + read 64B</button>
+<button id="usbDiag" title="List permitted USB/serial devices without opening anything">Diagnose</button>
+<button id="usbClose" class="danger">Close</button>
+</div>
+</div>
+<div style="margin-top:.8rem">
+<h2>WebHID · IF1 interrupt 0x05 OUT / 0x85 IN, 64B</h2>
+<div class="row">
+<button id="hidConnect">Connect HID</button>
+<button id="hidRead">Send 0C 00 02 00 + read</button>
+<button id="hidClose" class="danger">Close</button>
+</div>
+</div>
+<div style="margin-top:.8rem">
+<h2>PD sniffer · bulk GET_DATA PD_PACKET</h2>
+<div class="row">
+<button id="pdSniff">Read PD status (WebUSB)</button>
+<span><small>needs WebUSB connected · idle contract returns status only; catch plug-in for wire events</small></span>
+</div>
+<pre id="pdRaw" style="height:120px;max-height:20vh">pd sniffer idle.
+</pre>
+</div>
+<div style="margin-top:.8rem">
+<h2>PDM session · serial</h2>
+<div class="row">
+<label class="chk" title="Always on unless you need the session: uncheck to keep PDM open after Get contract for manual pd commands"><input type="checkbox" id="serPdmAuto" checked>auto-exit PDM after contract read</label>
+</div>
+<p class="sub" style="margin:.4rem 0 0">Get contract opens a <code>pdm</code> session, which takes over the dongle's PD engine (charging blips while it reads). Left open, the session keeps owning the engine: the charger parks at 5V, downstream negotiation flaps, and bulk PD reads come back REJECT. Auto-exit sends <code>pdm close</code> when the read finishes so everything re-negotiates cleanly. Uncheck only to keep the session for manual <code>pd …</code> commands — then press Exit PDM (above) when done.</p>
+</div>
+<div style="margin-top:.8rem">
+<div class="logbar"><h2 style="margin:0">Log</h2><span><button id="logCopy" title="Copy log" aria-label="Copy log" style="padding:.35rem .55rem"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="2"/><path d="M11 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h1"/></svg></button> <button id="logClear" class="danger">Clear</button></span></div>
+<pre id="log">ready.
+</pre>
+</div>
+</details>
+
+<script>
+const log = (...a) => {
+  const el = document.getElementById('log');
+  el.textContent += a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ') + '\n';
+  // cap growth: keep last ~500 lines so the page stays fast
+  const lines = el.textContent.split('\n');
+  if (lines.length > 500) el.textContent = lines.slice(-500).join('\n');
+  el.scrollTop = el.scrollHeight;
+};
+document.getElementById('logClear').onclick = () => { document.getElementById('log').textContent = ''; };
+document.getElementById('logCopy').onclick = async (e) => {
+  const btn = e.currentTarget;
+  try {
+    await navigator.clipboard.writeText(document.getElementById('log').textContent);
+    btn.style.borderColor = '#3aa88a';
+    setTimeout(() => btn.style.borderColor = '', 800);
+  } catch (err) { log('copy failed: ' + (err.message || err)); }
+};
+const hex = (buf) => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join(' ');
+const sliceBuf = (dv) => dv.buffer.slice(dv.byteOffset, dv.byteOffset + dv.byteLength);
+
+// Same parser as python/adc_simple.py: hdr(4)+ext(4)+adc(44)
+function parseAdc(buf) {
+  const dv = new DataView(buf);
+  const v = (o) => dv.getInt32(o, true) / 1e6;
+  return {
+    hdrType: dv.getUint8(0), hdrId: dv.getUint8(1),
+    vbus: v(8), ibus: v(12), vbusAvg: v(16), ibusAvg: v(20),
+    tempC: dv.getInt16(32, true) / 128,
+    vcc1: dv.getUint16(34, true) / 1e4, vcc2: dv.getUint16(36, true) / 1e4,
+    vdp: dv.getUint16(38, true) / 1e4, vdm: dv.getUint16(40, true) / 1e4,
+  };
+}
+
+function showDevInfo(d) {
+  const model = d.productId === 0x63 ? 'KM003C' : d.productId === 0x61 ? 'KM002C' : (d.productName || 'POWER-Z');
+  document.getElementById('devPill').textContent = model;
+  document.getElementById('devSerial').textContent = d.serialNumber ? `serial ${d.serialNumber}` : '';
+}
+
+// ---- WebUSB ----
+let usb = null, claimed = false; // claimed tracks our exclusive IF0 hold (open ≠ claimed!)
+// All bulk traffic goes through this chain so concurrent loops (live tick,
+// wire watch, one-shot debug reads) can never interleave transferOut/In
+// pairs and cross responses on the single bulk endpoint.
+let usbChain = Promise.resolve();
+function usbExcl(fn, ms = 5000) {
+  const run = usbChain.then(fn, fn);
+  usbChain = run.catch(() => {}); // chain always advances, even past a hung transfer
+  if (!ms) return run;
+  let timer = null;
+  const timeout = new Promise((_, rej) => {
+    timer = setTimeout(() => {
+      try { usb?.clearHalt('in', 1)?.catch(() => {}); } catch (e) {} // flush attempt must never block the timeout itself
+      rej(new Error('USB timeout'));
+    }, ms);
+  });
+  // settle either way AND disarm the other side: a fired timer must never clearHalt a later healthy transfer
+  return Promise.race([
+    run.then(v => { clearTimeout(timer); return v; }, e => { clearTimeout(timer); throw e; }),
+    timeout,
+  ]);
+}
+document.getElementById('usbConnect').onclick = async () => {
+  try {
+    usb = await navigator.usb.requestDevice({ filters: [{ vendorId: 0x5FC9 }] });
+    await usb.open();
+    if (!usb.configuration) await usb.selectConfiguration(1);
+    await usb.claimInterface(0); // WinUSB IF0; CDC/HID stay with OS
+    claimed = true;
+  } catch (e) {
+    try { await usb?.close(); } catch (_) {}
+    usb = null; claimed = false;
+    if (e && e.name === 'NotFoundError') return; // chooser dismissed — not an error
+    log('WebUSB connect failed: ' + (e.message || e));
+    return;
+  }
+  showDevInfo(usb);
+  log('WebUSB open:', usb.productName, `(vid:${usb.vendorId.toString(16)} pid:${usb.productId.toString(16)})`, 'cfg', usb.configuration?.configurationValue);
+};
+document.getElementById('usbRead').onclick = async () => {
+  if (!usb) return log('connect first');
+  await usbExcl(async () => {
+  const cmd = new Uint8Array([0x0C, 0x00, 0x02, 0x00]); // CMD_GET_DATA/ATT_ADC
+  await usb.transferOut(1, cmd.buffer); // EP 0x01 OUT = endpoint number 1
+  const r = await usb.transferIn(1, 64); // EP 0x81 IN = endpoint number 1
+  const buf = sliceBuf(r.data);
+  log('bulk IN bytes:', r.data.byteLength, hex(buf));
+  log(parseAdc(buf));
+  });
+};
+async function closeUsb() {
+  stopLive();
+  try { await usb?.close(); } catch (e) {}
+  usb = null; pdMon = false;
+  document.getElementById('liveStat').textContent = 'disconnected';
+  log('WebUSB closed');
+}
+document.getElementById('usbClose').onclick = closeUsb;
+document.getElementById('liveUsbClose').onclick = () => closeUsb().catch(e => log('close err: ' + (e.message || e)));
+document.getElementById('usbDiag').onclick = async () => {
+  try {
+    const devs = await navigator.usb.getDevices();
+    if (!devs.length) log('diag: no permitted USB devices — chooser grant needed (or device absent)');
+    for (const d of devs) log(`diag: usb vid:${d.vendorId.toString(16)} pid:${d.productId.toString(16)} ${d.productName || ''} opened:${d.opened} serial:${d.serialNumber || '-'}`);
+    log(`diag: page handle ${usb ? `opened:${usb.opened}` : 'none'}`);
+    if ('serial' in navigator) {
+      const ports = await navigator.serial.getPorts();
+      if (!ports.length) log('diag: no permitted serial ports');
+      for (const p of ports) { const i = p.getInfo(); log(`diag: serial vid:${(i.usbVendorId || 0).toString(16)} pid:${(i.usbProductId || 0).toString(16)}`); }
+    }
+  } catch (e) { log('diag err: ' + (e.message || e)); }
+};
+// the disconnect icon tracks the link: greyed out with no device, live when open
+function paintUsbState() {
+  const b = document.getElementById('liveUsbClose');
+  if (!b) return;
+  const on = !!(usb && usb.opened);
+  if (b.disabled === on) b.disabled = !on;
+}
+setInterval(paintUsbState, 1000);
+
+// ---- Live dashboard (polls single-shot ADC like adc_simple.py) ----
+let liveTimer = null, tickBusy = false;
+const hist = []; // {t, vbus, ibus, pwr, vbusAvg, ibusAvg, tempC, vcc1, vcc2, vdp, vdm}
+const MAXH = 60000; // ~60 s at 1000 SPS
+const IDIR_T = 0.005; // A; |ibus| below this reads as idle (no direction)
+function fmt(v, d=3) { const [i, f] = Math.abs(v).toFixed(d).split('.'); return `${i}.<small>${f}</small>`; }
+function paintLive(d) {
+  const iAbs = Math.abs(d.ibus);
+  document.getElementById('vVbus').innerHTML = `${fmt(d.vbus)} <span class="unit">V</span>`;
+  const idir = d.ibus < -IDIR_T ? '→' : d.ibus > IDIR_T ? '←' : ''; // flow at the male plug: → out of male, ← into male
+  const idirTip = idir === '→' ? 'current flows out of the male connector (male→female)' : idir ? 'current flows into the male connector (female→male)' : 'no significant current — no direction';
+  document.getElementById('vIbus').innerHTML = `${fmt(iAbs)} <span class="unit">A</span>${idir ? ` <span class="unit" title="${idirTip}" style="font-size:.85rem">${idir}</span>` : ''}`;
+  document.getElementById('vPwr').innerHTML = `${fmt(d.vbus * iAbs)} <span class="unit">W</span>`;
+  document.getElementById('vSub').innerHTML =
+    `DP:${d.vdp.toFixed(3)}V&nbsp;&nbsp;CC1:${d.vcc1.toFixed(3)}V<br>DM:${d.vdm.toFixed(3)}V&nbsp;&nbsp;CC2:${d.vcc2.toFixed(3)}V`;
+}
+async function liveOnce() {
+  return usbExcl(async () => {
+  const cmd = new Uint8Array([0x0C, 0x00, 0x02, 0x00]);
+  await usb.transferOut(1, cmd.buffer);
+  const r = await usb.transferIn(1, 64);
+  const buf = sliceBuf(r.data);
+  if (r.data.byteLength < 52) { document.getElementById('liveStat').textContent = `short frame ${r.data.byteLength}B — retrying`; return null; }
+  const d = parseAdc(buf);
+  paintLive(d);
+  return d;
+  });
+}
+let lastTempC = null;
+function toHist(o) {
+  // o: {t, vbus, ibusSigned, vbusAvg, ibusAvg, tempC, vcc1, vcc2, vdp, vdm}
+  const iAbs = Math.abs(o.ibusSigned);
+  if (o.tempC != null) lastTempC = o.tempC;
+  return { t: o.t, vbus: o.vbus, ibus: iAbs, pwr: o.vbus * iAbs,
+    idir: o.ibusSigned < -IDIR_T ? -1 : o.ibusSigned > IDIR_T ? 1 : 0,
+    vbusAvg: o.vbusAvg, ibusAvg: Math.abs(o.ibusAvg), tempC: lastTempC,
+    vcc1: o.vcc1, vcc2: o.vcc2, vdp: o.vdp, vdm: o.vdm };
+}
+function pushBatch(items, force) {
+  for (const it of items) hist.push(it);
+  if (hist.length > MAXH) hist.splice(0, hist.length - MAXH);
+  const nowD = performance.now(); // decouple render from drain at stream rates: draws ≤8/s unless forced
+  if (force || nowD - lastDrawT > 120 || !hist.length) { lastDrawT = nowD; drawGraph(); }
+  updateGraphStat();
+  if (items.length) { noteVbusPresence(items[items.length - 1].vbus); updateActive(); }
+}
+function pushSample(d) {
+  pushBatch([toHist({ t: Date.now(), vbus: d.vbus, ibusSigned: d.ibus,
+    vbusAvg: d.vbusAvg, ibusAvg: d.ibusAvg, tempC: d.tempC,
+    vcc1: d.vcc1, vcc2: d.vcc2, vdp: d.vdp, vdm: d.vdm })], true); // ≤20Hz: draw every poll (the 120ms gate is for stream rates)
+}
+// Open if needed, reuse if still live: Start after Stop never pops the
+// chooser while the handle is open (and usually not even after Close /
+// reload, via getDevices() silent re-attach of the permitted device).
+async function openUsb(d) {
+  await d.open();
+  if (!d.configuration) await d.selectConfiguration(1);
+  try {
+    await d.claimInterface(0); // WinUSB IF0; CDC/HID stay with OS
+  } catch (e) {
+    // stale handle or another claimant (Mtools, second tab): close, reopen once, then say plainly
+    try { await d.close(); } catch (_) {}
+    try { await d.open(); } catch (_) {}
+    try { await d.claimInterface(0); }
+      catch (e2) { throw new Error('cannot claim IF0 (' + (e2.message || e2) + ') — close any duplicate tabs/Mtools, then press START again (unplug/replug only if it persists)'); }
+  }
+  showDevInfo(d);
+  claimed = true;
+}
+async function ensureUsb() {
+  if (usb && usb.opened) {
+    if (!claimed) { // open but never claimed (e.g. failed debug connect) — claim now or say who holds it
+      try { await usb.claimInterface(0); claimed = true; }
+      catch (e) { usb = null; throw new Error('IF0 busy — close Mtools/duplicate tabs, then press START again (unplug/replug only if it persists)'); }
+    }
+    return 'resume'; // still live — no reconnect at all
+  }
+  const devs = await navigator.usb.getDevices();
+  usb = devs.find(d => d.vendorId === 0x5FC9) || null;
+  if (usb) {
+    try { await openUsb(usb); log('WebUSB attached:', usb.productName); return 'attach'; }
+    catch (e) { log('saved device unreachable: ' + (e.message || e)); usb = null; }
+  }
+  usb = await navigator.usb.requestDevice({ filters: [{ vendorId: 0x5FC9 }] });
+  await openUsb(usb);
+  log('WebUSB open:', usb.productName);
+  return 'open';
+}
+async function startLive() {
+  const how = await ensureUsb();
+  if (how === 'resume') log('resumed — handle still open, no reconnect');
+  stopLive();
+  const mode = document.getElementById('liveMode').value;
+  if (mode !== 'ss') { await startStream(+mode); return; }
+  try { await pdMonitorEnsure(); autoPdOn = true; document.getElementById('watchStat').textContent = 'auto-pd on'; }
+  catch (e) { autoPdOn = false; document.getElementById('watchStat').textContent = 'auto-pd off'; log('auto-pd enable: ' + (e.message || e)); }
+  const ms = +document.getElementById('liveRate').value;
+  let n = 0, t0 = performance.now();
+  const tick = async () => {
+    if (tickBusy) return; // never pile up behind a slow transfer
+    tickBusy = true;
+    try {
+      const d = await liveOnce();
+      if (d) { pushSample(d); n++; }
+      if (pdSoon || performance.now() - lastPd > 1000) { pdSoon = false; await autoPdKick(); } // passive contract latch alongside live polling
+      document.getElementById('liveStat').textContent = `${n} reads, ${((n*1000/(performance.now()-t0))).toFixed(1)}/s`;
+    }
+    catch (e) {
+      stopLive();
+      const gone = !usb || !usb.opened;
+      if (gone) { usb = null; pdMon = false; } // next Start re-attaches (silent if permitted, chooser if not)
+      document.getElementById('liveStat').textContent =
+        'err: ' + (e.message || e) + (gone ? ' · device gone, Start will reconnect' : ' · paused, Start resumes with no reconnect');
+    }
+    tickBusy = false;
+  };
+  await tick();
+  liveTimer = setInterval(tick, ms);
+}
+function streamTeardown() {
+  (async () => { // replies checked and logged, never throws
+    try {
+      await bulkCmd('STOP_GRAPH', [0x0F, 0, 0, 0]);
+      await bulkCmd('DISCONNECT', [0x03, 0, 0, 0]);
+      log('stream link closed');
+    } catch (e) { log('stream teardown: ' + (e.message || e)); }
+  })();
+}
+function stopLive() {
+  if (liveTimer) clearInterval(liveTimer); liveTimer = null;
+  if (streamTimer) clearTimeout(streamTimer); streamTimer = null;
+  if (streamOn) { streamOn = false; streamTeardown(); }
+  document.getElementById('liveRate').disabled = false;
+}
+document.getElementById('liveStart').onclick = () => startLive().catch(e => log('live err: ' + (e.message || e)));
+document.getElementById('liveStop').onclick = () => {
+  const was = !!(liveTimer || streamOn);
+  stopLive();
+  if (was) document.getElementById('liveStat').textContent =
+    (usb && usb.opened) ? 'paused · device still open — Start resumes instantly' : 'stopped · no device open';
+  if (!watching) document.getElementById('watchStat').textContent = '';
+};
+// rate applies immediately when running (restarts the loop, keeps device + history)
+const restartLive = () => { if (liveTimer || streamOn) startLive().catch(e => log('live err: ' + (e.message || e))); };
+document.getElementById('liveRate').addEventListener('change', restartLive);
+document.getElementById('liveMode').addEventListener('change', restartLive);
+
+// ---- High-rate streaming (AdcQueue + STREAM_AUTH; cf. docs/PROTOCOL.md) ----
+const SPS_OF = [2, 10, 50, 1000];
+const MEMKEY = 'Lh2yfB7n6X7d9a5Z', AUTHKEY = 'Fa0b4tA25f4R038a';
+const asc = (s) => Uint8Array.from([...s].map(c => c.charCodeAt(0)));
+let streamTimer = null, streamOn = false;
+let lastSeq = null, dropped = 0, effSps = 0, lastPollT = 0, lastSampleT = 0, emptyWarned = false, zeroRun = 0;
+let corrupt = 0, corruptLogged = 0, pollMs = 0, pollBytes = 0, pollN = 0, lastSummary = 0, lastPollBytes = 0, lastDrawT = 0, drawMs = 0;
+// ---- AES-128 (tiny pure-JS ECB; S-boxes generated from GF(2^8) math, no tables to mistype) ----
+function xt(a, b) { // GF(2^8) multiply (AES polynomial x^8+x^4+x^3+x+1)
+  let p = 0;
+  for (let i = 0; i < 8; i++) {
+    if (b & 1) p ^= a;
+    const hi = a & 0x80;
+    a = (a << 1) & 0xFF;
+    if (hi) a ^= 0x1B;
+    b >>= 1;
+  }
+  return p;
+}
+function xtPow(a, e) { let r = 1; while (e) { if (e & 1) r = xt(r, a); a = xt(a, a); e >>= 1; } return r; }
+const rotl8 = (v, n) => ((v << n) | (v >> (8 - n))) & 0xFF;
+const AES_SBOX = new Uint8Array(256), AES_ISBOX = new Uint8Array(256), AES_RCON = new Uint8Array(11);
+(function aesInitTables() {
+  for (let x = 0; x < 256; x++) {
+    const inv = x ? xtPow(x, 254) : 0;
+    AES_SBOX[x] = (inv ^ rotl8(inv, 1) ^ rotl8(inv, 2) ^ rotl8(inv, 3) ^ rotl8(inv, 4) ^ 0x63) & 0xFF;
+  }
+  for (let s = 0; s < 256; s++) {
+    const u = rotl8(s, 1) ^ rotl8(s, 3) ^ rotl8(s, 6) ^ 0x05;
+    AES_ISBOX[s] = u ? xtPow(u, 254) : 0;
+  }
+  for (let i = 1; i < 11; i++) AES_RCON[i] = xtPow(2, i - 1);
+})();
+function aesExpand(key16) {
+  const ek = new Uint8Array(176); ek.set(key16);
+  for (let i = 16; i < 176; i += 4) {
+    const t0 = ek[i - 4], t1 = ek[i - 3], t2 = ek[i - 2], t3 = ek[i - 1];
+    let a0 = t0, a1 = t1, a2 = t2, a3 = t3;
+    if (i % 16 === 0) { a0 = AES_SBOX[t1] ^ AES_RCON[i >> 4]; a1 = AES_SBOX[t2]; a2 = AES_SBOX[t3]; a3 = AES_SBOX[t0]; }
+    ek[i] = ek[i - 16] ^ a0; ek[i + 1] = ek[i - 15] ^ a1; ek[i + 2] = ek[i - 14] ^ a2; ek[i + 3] = ek[i - 13] ^ a3;
+  }
+  return ek;
+}
+function aesShift(s) {
+  let t = s[1]; s[1] = s[5]; s[5] = s[9]; s[9] = s[13]; s[13] = t;
+  t = s[2]; s[2] = s[10]; s[10] = t; t = s[6]; s[6] = s[14]; s[14] = t;
+  t = s[15]; s[15] = s[11]; s[11] = s[7]; s[7] = s[3]; s[3] = t;
+}
+function aesInvShift(s) {
+  let t = s[13]; s[13] = s[9]; s[9] = s[5]; s[5] = s[1]; s[1] = t;
+  t = s[2]; s[2] = s[10]; s[10] = t; t = s[6]; s[6] = s[14]; s[14] = t;
+  t = s[3]; s[3] = s[7]; s[7] = s[11]; s[11] = s[15]; s[15] = t;
+}
+function aesMix(s) {
+  for (let c = 0; c < 4; c++) {
+    const a0 = s[4 * c], a1 = s[4 * c + 1], a2 = s[4 * c + 2], a3 = s[4 * c + 3];
+    s[4 * c] = xt(a0, 2) ^ xt(a1, 3) ^ a2 ^ a3;
+    s[4 * c + 1] = a0 ^ xt(a1, 2) ^ xt(a2, 3) ^ a3;
+    s[4 * c + 2] = a0 ^ a1 ^ xt(a2, 2) ^ xt(a3, 3);
+    s[4 * c + 3] = xt(a0, 3) ^ a1 ^ a2 ^ xt(a3, 2);
+  }
+}
+function aesInvMix(s) {
+  for (let c = 0; c < 4; c++) {
+    const a0 = s[4 * c], a1 = s[4 * c + 1], a2 = s[4 * c + 2], a3 = s[4 * c + 3];
+    s[4 * c] = xt(a0, 0x0e) ^ xt(a1, 0x0b) ^ xt(a2, 0x0d) ^ xt(a3, 0x09);
+    s[4 * c + 1] = xt(a0, 0x09) ^ xt(a1, 0x0e) ^ xt(a2, 0x0b) ^ xt(a3, 0x0d);
+    s[4 * c + 2] = xt(a0, 0x0d) ^ xt(a1, 0x09) ^ xt(a2, 0x0e) ^ xt(a3, 0x0b);
+    s[4 * c + 3] = xt(a0, 0x0b) ^ xt(a1, 0x0d) ^ xt(a2, 0x09) ^ xt(a3, 0x0e);
+  }
+}
+function aesEncBlock(pt16, ek) {
+  const s = new Uint8Array(pt16);
+  const add = (r) => { for (let i = 0; i < 16; i++) s[i] ^= ek[r * 16 + i]; };
+  add(0);
+  for (let r = 1; r < 10; r++) {
+    for (let i = 0; i < 16; i++) s[i] = AES_SBOX[s[i]];
+    aesShift(s); aesMix(s); add(r);
+  }
+  for (let i = 0; i < 16; i++) s[i] = AES_SBOX[s[i]];
+  aesShift(s); add(10);
+  return s;
+}
+function aesDecBlock(ct16, ek) {
+  const s = new Uint8Array(ct16);
+  const add = (r) => { for (let i = 0; i < 16; i++) s[i] ^= ek[r * 16 + i]; };
+  add(10);
+  for (let r = 9; r >= 1; r--) {
+    aesInvShift(s);
+    for (let i = 0; i < 16; i++) s[i] = AES_ISBOX[s[i]];
+    add(r); aesInvMix(s);
+  }
+  aesInvShift(s);
+  for (let i = 0; i < 16; i++) s[i] = AES_ISBOX[s[i]];
+  add(0);
+  return s;
+}
+async function ecbCrypt(keyBytes, data, op) {
+  if (data.length % 16) throw new Error('ECB input not a whole number of blocks');
+  const ek = aesExpand(keyBytes);
+  const out = new Uint8Array(data.length);
+  for (let off = 0; off < data.length; off += 16) {
+    const blk = (op === 'encrypt' ? aesEncBlock : aesDecBlock)(data.slice(off, off + 16), ek);
+    out.set(blk, off);
+  }
+  return out;
+}
+let aesOk = null;
+function aesSelfTest() {
+  if (aesOk != null) return aesOk;
+  const H = (s) => Uint8Array.from(s.match(/../g).map(h => parseInt(h, 16)));
+  const EQ = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  const key = H('000102030405060708090a0b0c0d0e0f'); // FIPS-197 Appendix B
+  const pt = H('00112233445566778899aabbccddeeff');
+  const ct = H('69c4e0d86a7b0430d8cdb78070b4c55a');
+  const ek = aesExpand(key);
+  const okFips = EQ(aesEncBlock(pt, ek), ct) && EQ(aesDecBlock(ct, ek), pt);
+  const hard = H('33f8860c0054288cdc7e52729826872dd18b539a39c407d5c063d91102e36a9e'); // real MEM_READ packet
+  const h0 = aesDecBlock(hard.slice(0, 16), aesExpand(asc(MEMKEY)));
+  const okHard = h0[0] === 0x20 && h0[1] === 0x04 && h0[2] === 0 && h0[3] === 0 &&
+    h0[4] === 0x40 && h0[5] === 0 && h0[6] === 0 && h0[7] === 0;
+  const okRt = EQ(aesDecBlock(aesEncBlock(pt, ek), ek), pt);
+  aesOk = okFips && okHard && okRt;
+  log(`AES self-test: ${aesOk ? 'PASS (FIPS vector + known packet + roundtrip)' : 'FAIL — streaming disabled'}`);
+  if (!aesOk) log(`AES detail: fips=${okFips} hard=${okHard} rt=${okRt}`);
+  return aesOk;
+}
+function crc32(b) {
+  let c = ~0;
+  for (let i = 0; i < b.length; i++) {
+    c ^= b[i];
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+  }
+  return (~c) >>> 0;
+}
+function u32le(b, o) { return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0; }
+async function memRead(addr, size) {
+  const need = Math.ceil(size / 16) * 16;
+  // req: [addr][size][FFFFFFFF][crc32][FF×16], AES-ECB(Key0); HWID = first 12 of decrypted data
+  const pt = new Uint8Array(32).fill(0xFF);
+  const dv = new DataView(pt.buffer);
+  dv.setUint32(0, addr, true);
+  dv.setUint32(4, size, true);
+  dv.setUint32(8, 0xFFFFFFFF, true);
+  dv.setUint32(12, crc32(pt.slice(0, 12)), true);
+  const enc = await ecbCrypt(asc(MEMKEY), pt, 'encrypt');
+  const tid = (pdTid++) & 0xFF;
+  const pkt = new Uint8Array(36);
+  pkt.set([0x44, tid, 0x01, 0x01]); pkt.set(enc, 4);
+  const acc = await usbExcl(async () => {
+    await usb.transferOut(1, pkt.buffer);
+    let a = new Uint8Array(0);
+    for (let i = 0; i < 6 && a.length < 20 + need; i++) {
+      const r = await usb.transferIn(1, 64);
+      const chunk = new Uint8Array(sliceBuf(r.data));
+      const nb = new Uint8Array(a.length + chunk.length);
+      nb.set(a); nb.set(chunk, a.length); a = nb;
+    }
+    return a;
+  });
+  if (acc.length < 20 + need || acc[0] !== 0xC4) throw new Error(`MEM_READ 0x${addr.toString(16)}: short/garbled reply (${acc.length}B) — Exit PDM if a session is open`);
+  log(`MEM_READ reply: ${acc.length}B`);
+  const cbody = acc.slice(4, 20);
+  if (!(u32le(cbody, 8) === 0xFFFFFFFF && u32le(cbody, 12) === crc32(cbody.slice(0, 12)))) log('MEM_READ confirm mismatch (continuing anyway)');
+  return ecbCrypt(asc(MEMKEY), acc.slice(20, 20 + need), 'decrypt');
+}
+async function memReadHwid() {
+  // HWID = first 12 of decrypted data at 0x40010450
+  return (await memRead(0x40010450, 12)).slice(0, 12);
+}
+async function tryAuth(cred12, label) {
+  // req: [timestamp_ms u64][HWID 12B][random 12B], AES-ECB(Key3); ok = attr&1 && level
+  const pt = new Uint8Array(32);
+  new DataView(pt.buffer).setBigUint64(0, BigInt(Date.now()), true);
+  pt.set(cred12, 8);
+  crypto.getRandomValues(pt.subarray(20, 32));
+  const enc = await ecbCrypt(asc(AUTHKEY), pt, 'encrypt');
+  const tid = (pdTid++) & 0xFF;
+  const pkt = new Uint8Array(36);
+  pkt.set([0x4C, tid, 0x00, 0x02]); pkt.set(enc, 4);
+  let r = null;
+  for (let a = 0; a < 3; a++) {
+    r = await usbExcl(async () => {
+      await usb.transferOut(1, pkt.buffer);
+      return await usb.transferIn(1, 64);
+    });
+    if (r.data.byteLength >= 4) break; // parsed rejections are real answers — only empty replies retry
+    log(`auth ${label}: empty reply, retry ${a + 1}/3…`);
+    await new Promise(res => setTimeout(res, 300));
+  }
+  const buf = sliceBuf(r.data);
+  log(`STREAM_AUTH reply (${label}): ${r.data.byteLength}B`);
+  log(`STREAM_AUTH reply: ${r.data.byteLength}B`);
+  if (r.data.byteLength < 4 || new Uint8Array(buf)[0] !== 0x4C) throw new Error('STREAM_AUTH: bad reply — Exit PDM if a session is open');
+  const attr = new DataView(buf).getUint16(2, true) >>> 1;
+  const level = (attr >> 1) & 3;
+  log(`auth ${label}: attr 0x${attr.toString(16)} level ${level}`);
+  // granted = nonzero level (KM002C omits the bit0 result flag KM003C sets: refuse 0x101, grant 0x102)
+  return level ? level : 0;
+}
+function credKey() {
+  try { return 'recharge.authcred.' + (usb.serialNumber || 'default'); }
+  catch (e) { return 'recharge.authcred.default'; }
+}
+function loadCred() {
+  try {
+    const s = localStorage.getItem(credKey());
+    if (!s) return null;
+    const b = Uint8Array.from(atob(s), c => c.charCodeAt(0));
+    return b.length === 12 ? b : null;
+  } catch (e) { return null; }
+}
+function saveCred(bytes) {
+  try { localStorage.setItem(credKey(), btoa(String.fromCharCode(...bytes))); } catch (e) {}
+}
+async function streamAuth() {
+  const cached = loadCred();
+  if (cached) {
+    const cl = await tryAuth(cached, 'cached');
+    if (cl) { log(`stream auth ok (cached credential, level ${cl})`); return cl; }
+    log('cached credential refused — running full chain');
+  }
+  const hwid = await memReadHwid();
+  log('HWID:', [...hwid].map(b => b.toString(16).padStart(2, '0')).join(''));
+  let level = await tryAuth(hwid, 'HWID');
+  if (level) { saveCred(hwid); log(`stream auth ok (HWID, level ${level})`); return level; }
+  const cals = [0x3000C00, 0x3000D80];
+  for (let ci = 0; ci < cals.length; ci++) {
+    const addr = cals[ci];
+    await new Promise(res => setTimeout(res, 800)); // firmware throttles back-to-back auth (empty replies)
+    let cal = null;
+    try { cal = (await memRead(addr, 64)).slice(0, 12); }
+    catch (e) { log(`calibration read 0x${addr.toString(16)} failed: ` + (e.message || e)); continue; }
+    log(`candidate cal-0x${addr.toString(16)}:`, hex(cal.buffer));
+    level = await tryAuth(cal, `cal-0x${addr.toString(16)}`);
+    if (level) { saveCred(cal); log(`stream auth ok (cal-0x${addr.toString(16)}, level ${level})`); return level; }
+  }
+  throw new Error('STREAM_AUTH rejected for HWID + calibration credentials');
+}
+function parseQueue(buf, ccScale) {
+  // walk ext headers like the PD sniffer; att=0x002 payload = N×20B samples
+  const dv = new DataView(buf);
+  const out = [];
+  let off = 4;
+  while (off + 4 <= buf.byteLength) {
+    const w = dv.getUint32(off, true);
+    const att = w & 0x7FFF, nxt = (w >> 15) & 1, chunk = (w >> 16) & 0x3F, size = w >>> 22;
+    off += 4;
+    if (att === 0x002 && chunk > 0) {
+      const n = Math.min(chunk, Math.floor((buf.byteLength - off) / 20));
+      for (let i = 0; i < n; i++) {
+        const o = off + 20 * i;
+        out.push({
+          seq: dv.getUint16(o, true),
+          vbus: dv.getInt32(o + 4, true) / 1e6,
+          ibusSigned: dv.getInt32(o + 8, true) / 1e6,
+          vcc1: dv.getUint16(o + 12, true) / ccScale,
+          vcc2: dv.getUint16(o + 14, true) / ccScale,
+          vdp: dv.getUint16(o + 16, true) / ccScale,
+          vdm: dv.getUint16(o + 18, true) / ccScale,
+        });
+      }
+      off += n * 20; // consume exactly what we parsed
+    } else {
+      off += nxt ? size : buf.byteLength - off;
+    }
+    if (!nxt) break;
+  }
+  return out;
+}
+async function streamOnce(idx) {
+  return usbExcl(async () => {
+    const tid = (pdTid++) & 0xFF;
+    await usb.transferOut(1, new Uint8Array([0x0C, tid, 0x04, 0x00]).buffer); // GET_DATA/ATT_ADC_QUEUE
+    const r = await usb.transferIn(1, 2048);
+    lastPollBytes = r.data.byteLength;
+    if (r.data.byteLength < 12) return [];
+    return parseQueue(sliceBuf(r.data), idx === 0 ? 1e4 : 1e3);
+  });
+}
+function qPlausible(s) {
+  // corrupt queue samples (torn frames) must never reach scaling or the seq chain
+  return s.vbus >= 0 && s.vbus <= 60 && Math.abs(s.ibusSigned) <= 30 &&
+    s.vcc1 >= 0 && s.vcc1 <= 5 && s.vcc2 >= 0 && s.vcc2 <= 5 &&
+    s.vdp >= 0 && s.vdp <= 6 && s.vdm >= 0 && s.vdm <= 6;
+}
+function ingestBatch(samples, idx) {
+  const step = 1000 / SPS_OF[idx], now = Date.now();
+  const items = [];
+  let lastGood = null;
+  for (let k = 0; k < samples.length; k++) {
+    const s = samples[k];
+    if (s.vbus <= 0) {
+      // all-zero queue slots (torn reads) decode as vbus=0 yet pass the
+      // plausibility bounds — skip brief runs, let sustained zero through
+      // (a real unplug still reaches presence detection, ~200ms later).
+      zeroRun++;
+      if (zeroRun < Math.max(3, Math.round(SPS_OF[idx] * 0.2))) {
+        corrupt++;
+        lastSeq = null; // re-baseline: garbage seq must not poison the chain
+        if (corruptLogged < 8) { corruptLogged++; log(`queue: zero-VBUS sample skipped (seq ${s.seq}) — torn frame?`); }
+        continue;
+      }
+    } else zeroRun = 0;
+    if (!qPlausible(s)) {
+      corrupt++;
+      lastSeq = null; // re-baseline: garbage seq must not poison the chain
+      if (corruptLogged < 8) { corruptLogged++; log(`queue: implausible sample skipped (seq ${s.seq} vbus ${s.vbus} ibus ${s.ibusSigned})`); }
+      continue;
+    }
+    if (lastSeq != null) {
+      const diff = (s.seq - lastSeq + 65536) % 65536;
+      if (diff === 0) continue; // duplicate re-send: ignore
+      dropped += Math.max(0, Math.round((diff - step) / step)); // jitter-proof: only whole missing samples count
+    }
+    lastSeq = s.seq;
+    lastGood = s;
+    items.push(toHist({ t: now - (samples.length - 1 - k) * step,
+      vbus: s.vbus, ibusSigned: s.ibusSigned, vbusAvg: s.vbus, ibusAvg: s.ibusSigned, tempC: null,
+      vcc1: s.vcc1, vcc2: s.vcc2, vdp: s.vdp, vdm: s.vdm }));
+  }
+  if (!items.length) return;
+  pushBatch(items);
+  paintLive({ vbus: lastGood.vbus, ibus: lastGood.ibusSigned, vdp: lastGood.vdp, vdm: lastGood.vdm, vcc1: lastGood.vcc1, vcc2: lastGood.vcc2 });
+}
+async function bulkCmd(name, bytes) {
+  const t = (pdTid++) & 0xFF;
+  const wb = bytes.slice(); wb[1] = t;
+  const r = await usbExcl(async () => {
+    await usb.transferOut(1, new Uint8Array(wb).buffer);
+    return await usb.transferIn(1, 64);
+  });
+  const tp = r.data.byteLength ? new Uint8Array(sliceBuf(r.data))[0] & 0x7F : -1;
+  log(`usb: ${name} -> ${tp === 5 ? 'ACCEPT' : tp === 6 ? 'REJECT' : tp < 0 ? 'empty' : 'type 0x' + tp.toString(16)} (id ${t})`);
+  return tp;
+}
+async function startStream(idx) {
+  lastSeq = null; dropped = 0; effSps = 0; lastPollT = performance.now(); lastSampleT = lastPollT; emptyWarned = false; zeroRun = 0;
+  let n = 0;
+  if (!aesSelfTest()) {
+    document.getElementById('liveStat').textContent = 'AES self-test failed — streaming disabled';
+    return;
+  }
+  const stat = (t) => { document.getElementById('liveStat').textContent = t; };
+  try {
+    stat('stream: connecting…');
+    try { await usb.clearHalt('in', 1); log('stream: endpoint reset'); }
+    catch (e) { log('stream: endpoint reset skipped (' + (e.message || e) + ')'); }
+    await bulkCmd('DISCONNECT', [0x03, 0, 0, 0]);
+    if (await bulkCmd('CONNECT', [0x02, 0, 0, 0]) !== 5)
+      throw new Error('CONNECT: no ACCEPT — stale session or device busy (PDM open? try Reset session)');
+    stat('stream: authenticating…');
+    await streamAuth();
+    stat('stream: starting graph…');
+    if (await bulkCmd('START_GRAPH', [0x0E, 0, (idx << 1) & 0xFF, 0x00]) !== 5)
+      throw new Error('START_GRAPH: no ACCEPT');
+  } catch (e) {
+    document.getElementById('liveStat').textContent = 'stream init failed: ' + (e.message || e);
+    log('stream init failed: ' + (e.message || e) + ' — single-shot still works; Exit PDM if a session is open');
+    if (e && e.stack) log('stack: ' + String(e.stack).split('\n').slice(0, 4).join(' | '));
+    streamTeardown();
+    return;
+  }
+  streamOn = true;
+  document.getElementById('liveRate').disabled = true; // fixed cadence in stream mode
+  const gap = idx === 3 ? 30 : 100; // ~10 polls/s keeps tiles lively at every rate
+  document.getElementById('liveStat').textContent = `${SPS_OF[idx]} SPS stream starting…`;
+  const loop = async () => {
+    if (!streamOn) return;
+    try {
+      const p0 = performance.now();
+      const samples = await streamOnce(idx);
+      const p1 = performance.now();
+      pollMs = pollMs ? pollMs * 0.8 + (p1 - p0) * 0.2 : p1 - p0;
+      pollBytes += lastPollBytes; pollN++;
+      const now = performance.now();
+      if (samples.length) {
+        const inst = samples.length / Math.max(1, now - lastPollT) * 1000;
+        effSps = effSps ? effSps * 0.7 + inst * 0.3 : inst;
+        lastSampleT = now; emptyWarned = false;
+        ingestBatch(samples, idx);
+        n += samples.length;
+      } else if (!emptyWarned && now - lastSampleT > 5000) {
+        emptyWarned = true;
+        log('queue empty 5s — auth may have failed; Stop and retry, or use single-shot');
+      }
+      drawMs = drawMs ? drawMs * 0.8 + (performance.now() - p1) * 0.2 : performance.now() - p1;
+      lastPollT = now;
+      if (pdSoon || now - lastPd > 1000) { pdSoon = false; await autoPdKick(); }
+      if (now - lastSummary > 5000) {
+        lastSummary = now;
+        log(`stream: ${pollMs.toFixed(0)}ms xfer + ${drawMs.toFixed(0)}ms ingest/draw per poll, ${(pollBytes / Math.max(1, pollN)).toFixed(0)}B/poll, eff ${effSps.toFixed(0)}, dropped ${dropped.toFixed(0)}, corrupt ${corrupt}`);
+        pollBytes = 0; pollN = 0;
+      }
+      document.getElementById('liveStat').textContent =
+        `${SPS_OF[idx]} SPS · ${effSps.toFixed(0)} eff · ${dropped.toFixed(0)} dropped · ${n} samples`;
+    } catch (e) {
+      streamOn = false;
+      streamTeardown(); // teardown runs on error stops too, so the next Start finds a clean device
+      stopLive();
+      const gone = !usb || !usb.opened;
+      if (gone) { usb = null; pdMon = false; }
+      document.getElementById('liveStat').textContent =
+        'err: ' + (e.message || e) + (gone ? ' · device gone, Start will reconnect' : ' · paused, Start resumes');
+    }
+    if (streamOn) streamTimer = setTimeout(loop, gap);
+  };
+  loop();
+}
+
+// ---- Live graph (canvas, no deps): per-series auto-scale, fed by pushSample ----
+const GCOL = { vbus: '#3ddc97', ibus: '#e06c7c', pwr: '#4a9fd8', cc1: '#e6c34a', cc2: '#9a7bd4' };
+function graphSeries() {
+  return [
+    { key: 'vbus', on: document.getElementById('gV').checked, unit: 'V', col: GCOL.vbus, dec: 3 },
+    { key: 'ibus', on: document.getElementById('gI').checked, unit: 'A', col: GCOL.ibus, dec: 3 },
+    { key: 'pwr', on: document.getElementById('gP').checked, unit: 'W', col: GCOL.pwr, dec: 3 },
+    { key: 'vcc1', on: document.getElementById('gCC1').checked, unit: 'V', ax: 'CC1', col: GCOL.cc1, dec: 3, fixed: [0, 3], share: 'vbus', grp: 'cc' },
+    { key: 'vcc2', on: document.getElementById('gCC2').checked, unit: 'V', ax: 'CC2', col: GCOL.cc2, dec: 3, fixed: [0, 3], share: 'vbus', grp: 'cc' },
+  ].filter(s => s.on);
+}
+let zoomMs = 0; // wheel-zoom span override, ms; 0 = follow the window select
+let viewEndT = 0; // view right edge (device ms); 0 = live edge (follows new samples)
+function viewT1() { const lastT = hist.length ? hist[hist.length - 1].t : Date.now(); return viewEndT || lastT; }
+function effSpanMs() {
+  if (zoomMs > 0) return zoomMs;
+  return (+document.getElementById('graphWindow').value || 0) * 1000; // 0 = all
+}
+function graphWindow() {
+  if (!hist.length) return hist;
+  const span = effSpanMs();
+  const t1 = viewT1();
+  let hi = hist.length;
+  while (hi > 0 && hist[hi - 1].t > t1) hi--; // drop samples newer than a frozen view
+  if (!span) return hist.slice(0, hi);
+  const cut = t1 - span;
+  let lo = hi;
+  while (lo > 0 && hist[lo - 1].t >= cut) lo--;
+  return hist.slice(lo, hi);
+}
+function fmtSpan(ms) {
+  return ms >= 60000 ? `${+(ms / 60000).toFixed(1)}min` : `${Math.max(1, Math.round(ms / 1000))}s`;
+}
+function updateGraphStat() {
+  const span = effSpanMs();
+  const behind = hist.length && viewEndT ? hist[hist.length - 1].t - viewEndT : 0;
+  document.getElementById('graphStat').textContent =
+    `${hist.length} pts · ${span ? fmtSpan(span) : 'all'}${behind > 500 ? ` · -${(behind / 1000).toFixed(0)}s behind live` : ''}`;
+}
+function niceStep(raw) {
+  if (!(raw > 0) || !isFinite(raw)) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const f = raw / p;
+  return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p;
+}
+function tickDec(step) {
+  if (step >= 10) return 0;
+  if (step >= 1) return 1;
+  if (step >= 0.1) return 2;
+  if (step >= 0.01) return 3;
+  return 4;
+}
+function yTicks(mn, mx) {
+  const step = niceStep((mx - mn) / 4);
+  const k0 = Math.ceil(mn / step - 1e-9), k1 = Math.floor(mx / step + 1e-9);
+  const out = [];
+  for (let k = k0; k <= k1 && out.length < 8; k++) {
+    const v = k * step;
+    out.push({ v, lbl: (Math.abs(v) < step * 1e-9 ? 0 : v).toFixed(tickDec(step)) });
+  }
+  return out.length ? out : [{ v: (mn + mx) / 2, lbl: ((mn + mx) / 2).toFixed(2) }];
+}
+function fitCanvas(cv, W, H) {
+  const dpr = window.devicePixelRatio || 1;
+  const pw = Math.round(W * dpr), ph = Math.round(H * dpr);
+  if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return ctx;
+}
+// Y axis in the series colour. Left axis: labels left of the line; right
+// axes: labels between plot edge and line so they never clip the canvas.
+function drawYAxis(ctx, x, side, l, Y, col, unit) {
+  const yTop = Y(l[1]), yBot = Y(l[0]);
+  ctx.strokeStyle = col; ctx.globalAlpha = 0.55; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x, yTop); ctx.lineTo(x, yBot); ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = col; ctx.textAlign = 'right';
+  for (const tk of yTicks(l[0], l[1])) {
+    const y = Y(tk.v);
+    ctx.strokeStyle = col; ctx.globalAlpha = 0.5;
+    ctx.beginPath(); ctx.moveTo(side === 'left' ? x : x - 5, y); ctx.lineTo(side === 'left' ? x + 5 : x, y); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillText(tk.lbl, x - 6, y + 3);
+  }
+  ctx.textAlign = 'center';
+  ctx.fillText(unit, x, 9);
+}
+let lastPlot = null; // geometry of the last base draw, for the hover overlay
+let limCache = {}, limSig = ''; // sticky axis limits: grow instantly, relax slowly (no rescale shimmer)
+let hoverX = null; // last cursor x (css px) over the graph; null = not hovering
+let tipSide = 1; // tooltip side of cursor: 1 = right, -1 = left (sticky, flips only when it must)
+let lastOverlay = 0, lastTipHtml = ''; // throttle parked refresh; skip DOM churn when content is identical
+function drawGraph() {
+  const cv = document.getElementById('graph');
+  const W = cv.clientWidth || 880, H = cv.clientHeight || 220;
+  const ctx = fitCanvas(cv, W, H);
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0d0f12'; ctx.fillRect(0, 0, W, H);
+  const data = graphWindow();
+  const series = graphSeries();
+  const vOn = series.some(s => s.key === 'vbus');
+  const rightLanes = []; // one lane per series, except CC1+CC2 share a lane when V is off
+  for (const s of series) {
+    if (s.key === 'vbus') continue;
+    if (s.share && vOn) continue; // rides the V axis
+    const g = s.grp || s.key;
+    let lane = rightLanes.find(l => l.g === g);
+    if (!lane) { lane = { g, series: [] }; rightLanes.push(lane); }
+    lane.series.push(s);
+  }
+  const padL = vOn ? 46 : 10, padT = 18, padB = 18;
+  const plotRight = W - 8 - rightLanes.length * 36;
+  const iw = Math.max(10, plotRight - padL), ih = H - padT - padB;
+  const liveT = hist.length ? hist[hist.length - 1].t : Date.now();
+  const t1 = viewEndT || liveT; // frozen history view, or the live edge
+  const spanMs = effSpanMs() || Math.max(1, data.length > 1 ? t1 - data[0].t : 1000);
+  // X (time) axis — always, even when empty
+  ctx.font = '10px system-ui'; ctx.lineWidth = 1; ctx.fillStyle = '#9aa0a6'; ctx.textAlign = 'center';
+  const behind = liveT - t1;
+  for (let g = 0; g <= 4; g++) {
+    const back = spanMs * (4 - g) / 4;
+    const x = padL + iw * g / 4;
+    const lbl = g === 4 ? (behind > 500 ? `-${(behind / 1000).toFixed(0)}s` : 'now')
+      : (spanMs < 10000 ? `-${(back / 1000).toFixed(1)}s` : `-${(back / 1000).toFixed(0)}s`);
+    ctx.fillText(lbl, x, H - 5);
+    ctx.strokeStyle = '#1e2126';
+    ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + ih); ctx.stroke();
+  }
+  lastPlot = null;
+  limCache = {};
+  if (!data.length || !series.length) {
+    if (!series.length) document.getElementById('graphLegend').innerHTML = '<small>all series off — tick a series above.</small>';
+    clearOverlay();
+    return;
+  }
+  // per-series limits: V/A/W have different units, so each keeps its own
+  // scale — and each gets its own labelled Y axis below, so nothing is
+  // silently squashed (this is what makes the W trace honest).
+  const zero = document.getElementById('gZero').checked;
+  const lim = {};
+  const sig = series.map(s => s.key).join(',') + (zero ? '|z' : '|nz');
+  if (sig !== limSig) { limSig = sig; limCache = {}; } // series/zero change → re-anchor instantly
+  for (const s of series) {
+    if (s.fixed) { lim[s.key] = [s.fixed[0], s.fixed[1]]; continue; } // pinned scale, ignores zero-based
+    let mn = Infinity, mx = -Infinity;
+    for (const p of data) { const v = p[s.key]; if (v < mn) mn = v; if (v > mx) mx = v; }
+    if (!isFinite(mn)) { mn = 0; mx = 1; }
+    // all graphed quantities are ≥0: in zero-based mode pin 0 to the bottom
+    // gridline on every axis (no padding below it), so all zeroes align.
+    if (zero) { mn = 0; if (!(mx > 0)) mx = 1; }
+    else if (mx - mn < 1e-9) { const c = mx || 1; mn = c * 0.99; mx = c * 1.01 || 1; }
+    // snap out to round ticks so the top label always meets the data — a 9V
+    // rail gets a 0–10 axis instead of floating above an 8.0 top label.
+    const step0 = niceStep(Math.max((mx - mn) / 4, 1e-12));
+    const f0 = zero ? 0 : Math.floor(mn / step0 + 1e-9) * step0;
+    let f1 = Math.ceil(mx / step0 - 1e-9) * step0;
+    if (!(f1 > mx + (mx - f0) * 0.04)) f1 += step0; // keep the trace off the top edge
+    const fresh = [Math.min(f0, mn), f1];
+    const c = limCache[s.key];
+    if (!c) limCache[s.key] = fresh;
+    else if (fresh[0] < c[0] || fresh[1] > c[1]) limCache[s.key] = [Math.min(c[0], fresh[0]), Math.max(c[1], fresh[1])];
+    else limCache[s.key] = [c[0] + (fresh[0] - c[0]) * 0.15, c[1] + (fresh[1] - c[1]) * 0.15];
+    lim[s.key] = limCache[s.key];
+  }
+  const X = (t) => padL + iw * (1 - (t1 - t) / spanMs);
+  const Yof = (key) => { const [mn, mx] = lim[key]; return (v) => padT + ih * (1 - (v - mn) / (mx - mn)); };
+  // horizontal grid follows V when shown, else the first visible series
+  const gridKey = vOn ? 'vbus' : series[0].key;
+  const gY = Yof(gridKey);
+  ctx.strokeStyle = '#23262b';
+  for (const tk of yTicks(lim[gridKey][0], lim[gridKey][1])) {
+    ctx.beginPath(); ctx.moveTo(padL, gY(tk.v)); ctx.lineTo(plotRight, gY(tk.v)); ctx.stroke();
+  }
+  // traces: sparse data draws a polyline; dense data draws a min/max envelope
+  // per pixel column (stable under scroll — no decimation-aliasing shimmer).
+  // The envelope needs several samples per column: near ~1-2 per column,
+  // timestamp jitter leaves beat-phase columns empty and the trace breaks
+  // into dashes — so the polyline (which bridges sub-column gaps) owns
+  // everything up to 6 samples per column.
+  const clampY = (y) => Math.min(padT + ih, Math.max(padT, y));
+  const cols = Math.max(1, Math.floor(iw));
+  for (const s of series) {
+    const Y = Yof((s.share && vOn) ? 'vbus' : s.key);
+    ctx.strokeStyle = s.col; ctx.lineWidth = 1.5; ctx.lineCap = 'butt'; ctx.beginPath();
+    if (data.length <= cols * 6) {
+      data.forEach((p, i) => { const x = X(p.t), y = clampY(Y(p[s.key])); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    } else {
+      ctx.lineCap = 'round'; // flat columns are zero-height: butt caps paint nothing, round paints a dot
+      const cmin = new Float64Array(cols).fill(Infinity), cmax = new Float64Array(cols).fill(-Infinity);
+      for (const p of data) {
+        let cx = Math.floor(X(p.t) - padL); if (cx < 0) cx = 0; else if (cx >= cols) cx = cols - 1;
+        const v = p[s.key]; if (v < cmin[cx]) cmin[cx] = v; if (v > cmax[cx]) cmax[cx] = v;
+      }
+      for (let cx = 0; cx < cols; cx++) {
+        if (cmin[cx] === Infinity) continue;
+        const x = padL + cx + 0.5;
+        ctx.moveTo(x, clampY(Y(cmax[cx]))); ctx.lineTo(x, clampY(Y(cmin[cx])));
+      }
+    }
+    ctx.stroke();
+  }
+  ctx.lineWidth = 1;
+  // Y axes in series colours: V left, one lane each on the right (shared CC lane in grey, own colours when solo)
+  if (vOn) drawYAxis(ctx, padL - 8, 'left', lim.vbus, Yof('vbus'), GCOL.vbus, 'V');
+  rightLanes.forEach((l, i) => {
+    const solo = l.series.length === 1 ? l.series[0] : null;
+    const rep = solo || { col: '#9aa0a6', ax: 'CC' };
+    drawYAxis(ctx, plotRight + 34 + i * 36, 'right', lim[(solo || l.series[0]).key], Yof((solo || l.series[0]).key), rep.col, rep.ax || rep.unit);
+  });
+  // legend: current + per-series range
+  document.getElementById('graphLegend').innerHTML = series.map(s => {
+    const last = data[data.length - 1][s.key];
+    const lr = (s.share && vOn) ? lim.vbus : lim[s.key]; // shared series read off the V scale
+    return `<span><span class="sw" style="background:${s.col}"></span><b>${last.toFixed(s.dec)}${s.unit}</b> ${(s.ax || s.key).toUpperCase()} [${lr[0].toFixed(1)}–${lr[1].toFixed(1)}]</span>`;
+  }).join('');
+  lastPlot = { data, t1, tNew: liveT, spanMs, padL, plotRight, iw, padT, ih, lim, series, vOn };
+  // keep the readout pinned under a stationary cursor while logging, but
+  // throttled — full-rate redraws made pill and dots visibly dance.
+  if (hoverX == null) { clearOverlay(); } else if (performance.now() - lastOverlay > 400) { lastOverlay = performance.now(); drawOverlay(hoverX); }
+}
+function clearOverlay() {
+  const tip = document.getElementById('graphTip');
+  if (!tip || !tip.clientWidth) return;
+  const ctx = fitCanvas(tip, tip.clientWidth, tip.clientHeight || 220);
+  ctx.clearRect(0, 0, tip.clientWidth, tip.clientHeight || 220);
+  document.getElementById('graphTipBox').style.display = 'none';
+}
+// hover crosshair: nearest sample to the cursor + exact V/A/W at that point
+function drawOverlay(xCss) {
+  const tip = document.getElementById('graphTip');
+  const box = document.getElementById('graphTipBox');
+  const P = lastPlot;
+  const ctx = fitCanvas(tip, tip.clientWidth || 880, tip.clientHeight || 220);
+  const W = tip.clientWidth || 880, H = tip.clientHeight || 220;
+  ctx.clearRect(0, 0, W, H);
+  if (!P || !P.data.length) { box.style.display = 'none'; return; }
+  const x = Math.min(Math.max(xCss, P.padL), P.plotRight);
+  const t = P.t1 - (1 - (x - P.padL) / P.iw) * P.spanMs;
+  const d = P.data;
+  let lo = 0, hi = d.length - 1;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (d[m].t < t) lo = m + 1; else hi = m; }
+  let idx = lo;
+  if (idx > 0 && Math.abs(d[idx - 1].t - t) < Math.abs(d[idx].t - t)) idx--;
+  const p = d[idx];
+  // crosshair glued to the cursor (not snapped to the sample): values come
+  // from the nearest sample, but nothing steps sideways as new data arrives.
+  ctx.strokeStyle = '#5a636e'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x, P.padT); ctx.lineTo(x, P.padT + P.ih); ctx.stroke();
+  let html = `<div><small>-${((P.tNew - p.t) / 1000).toFixed(1)}s</small></div>`;
+  for (const s of P.series) {
+    const [mn, mx] = P.lim[(s.share && P.vOn) ? 'vbus' : s.key];
+    const y0 = P.padT + P.ih * (1 - (p[s.key] - mn) / (mx - mn));
+    const y = Math.min(P.padT + P.ih, Math.max(P.padT, y0));
+    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, 7);
+    ctx.fillStyle = s.col; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = '#0d0f12'; ctx.stroke();
+    const darrow = s.key === 'ibus' && p.idir ? (p.idir < 0 ? '→' : '←') : '';
+    const dtip = darrow === '→' ? 'out of the male connector' : darrow ? 'into the male connector' : '';
+    html += `<div><span class="sw" style="background:${s.col}"></span><b>${p[s.key].toFixed(3)} ${s.unit}</b> <small${dtip ? ` title="current flows ${dtip}"` : ''}>${(s.ax || s.key).toUpperCase()}${darrow ? ' · ' + darrow : ''}</small></div>`;
+  }
+  if (lastTipHtml !== html) { box.innerHTML = html; lastTipHtml = html; }
+  box.style.display = 'block';
+  // sticky side: only flip when the pill no longer fits, so per-sample
+  // width wobble (time label, digit counts) can't make it oscillate.
+  const bw = box.offsetWidth, bh = box.offsetHeight;
+  if (tipSide === 1) {
+    if (x + 12 + bw > W - 4) tipSide = -1;
+  } else {
+    if (x - 12 - bw < 4) tipSide = 1;
+  }
+  const bx = tipSide === 1 ? x + 12 : x - 12 - bw;
+  box.style.left = Math.max(4, Math.min(W - bw - 4, bx)) + 'px';
+  box.style.top = Math.max(4, Math.min(H - bh - 4, P.padT + 4)) + 'px';
+}
+['gV', 'gI', 'gP', 'gCC1', 'gCC2', 'gZero'].forEach(id =>
+  document.getElementById(id).addEventListener('change', drawGraph));
+document.getElementById('graphWindow').addEventListener('change', () => { zoomMs = 0; viewEndT = 0; drawGraph(); updateGraphStat(); });
+window.addEventListener('resize', drawGraph);
+// wheel zoom centered on the cursor: the time under the cursor stays put,
+// and the frozen view never shows empty space (window clamped into data)
+document.getElementById('graphWrap').addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const full = hist.length > 1 ? hist[hist.length - 1].t - hist[0].t : 0;
+  const cur = effSpanMs() || full || 30000;
+  // zoom lives inside the window select: never past it (long history), and
+  // always up to it (short history may show empty buffer). 'all' opens the arena.
+  const selMs = (+document.getElementById('graphWindow').value || 0) * 1000;
+  const maxSpan = selMs || Math.max(full, 1000);
+  const span2 = Math.min(Math.max(cur * (e.deltaY > 0 ? 1.25 : 1 / 1.25), 1000), maxSpan);
+  const P = lastPlot;
+  if (P && hist.length) {
+    const r = document.getElementById('graphWrap').getBoundingClientRect();
+    const fx = Math.min(1, Math.max(0, (e.clientX - r.left - P.padL) / P.iw));
+    const tc = P.t1 - (1 - fx) * P.spanMs; // time under cursor — stays put
+    zoomMs = span2;
+    const lastT = hist[hist.length - 1].t, firstT = hist[0].t;
+    let end2 = tc + (1 - fx) * span2;
+    end2 = Math.min(lastT, Math.max(firstT + Math.min(span2, lastT - firstT), end2));
+    viewEndT = end2 >= lastT ? 0 : end2; // back at the live edge → follow live
+  } else {
+    zoomMs = span2;
+  }
+  drawGraph(); updateGraphStat();
+}, { passive: false });
+document.getElementById('graphWrap').addEventListener('dblclick', () => { zoomMs = 0; viewEndT = 0; drawGraph(); updateGraphStat(); });
+// hover crosshair with exact V/A/W at the cursor
+const graphTip = document.getElementById('graphTip');
+graphTip.addEventListener('mousemove', (e) => {
+  const r = graphTip.getBoundingClientRect();
+  hoverX = e.clientX - r.left;
+  drawOverlay(hoverX);
+  lastOverlay = performance.now();
+});
+graphTip.addEventListener('mouseleave', () => { hoverX = null; clearOverlay(); });
+// grabbable corner: drag to resize graph height (default 220px unchanged)
+const graphWrap = document.getElementById('graphWrap');
+const graphGrip = document.getElementById('graphGrip');
+let graphH = 220;
+function setGraphH(h) {
+  graphH = Math.min(640, Math.max(120, Math.round(h)));
+  graphWrap.style.setProperty('--gh', graphH + 'px');
+  drawGraph();
+}
+graphGrip.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  const y0 = e.clientY, h0 = graphH;
+  graphGrip.setPointerCapture(e.pointerId);
+  const mv = (ev) => setGraphH(h0 + (ev.clientY - y0));
+  const up = () => { graphGrip.removeEventListener('pointermove', mv); graphGrip.removeEventListener('pointerup', up); };
+  graphGrip.addEventListener('pointermove', mv);
+  graphGrip.addEventListener('pointerup', up);
+});
+graphGrip.addEventListener('dblclick', (e) => { e.stopPropagation(); setGraphH(220); });
+document.getElementById('graphClear').onclick = () => {
+  hist.length = 0;
+  zoomMs = 0; viewEndT = 0;
+  document.getElementById('graphLegend').innerHTML = '<small>graph cleared.</small>';
+  drawGraph(); updateGraphStat();
+};
+function downloadCsv(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+document.getElementById('csvExport').onclick = () => {
+  if (!hist.length) return log('nothing to export — start live first');
+  const t0 = hist[0].t;
+  const rows = ['iso_time,rel_ms,vbus_V,ibus_A,pwr_W,vbusAvg_V,ibusAvg_A,temp_C,vcc1_V,vcc2_V,vdp_V,vdm_V'];
+  for (const p of hist) rows.push(
+    `${new Date(p.t).toISOString()},${p.t - t0},${p.vbus.toFixed(6)},${p.ibus.toFixed(6)},${p.pwr.toFixed(6)},` +
+    `${p.vbusAvg.toFixed(6)},${p.ibusAvg.toFixed(6)},${p.tempC == null ? 'NaN' : p.tempC.toFixed(2)},${p.vcc1.toFixed(4)},${p.vcc2.toFixed(4)},${p.vdp.toFixed(4)},${p.vdm.toFixed(4)}`);
+  downloadCsv(`recharge-${new Date(t0).toISOString().replace(/[:.]/g, '-')}.csv`, rows.join('\n') + '\n');
+  log(`exported ${hist.length} samples to CSV`);
+};
+
+// ---- PD PDO decode (USB PD R3.2 layouts, cf. usbpd crate: Fixed/Battery/Variable/PPS/AVS) ----
+function decodePdo(pdo) {
+  if (pdo === 0) return { t: 'Pad', v: 0, a: null }; // EPR zero-padding (R3.2 §6.5.15.1)
+  const kind = pdo >>> 30;
+  if (kind === 0) return { t: 'Fixed', v: ((pdo >>> 10) & 0x3FF) * 0.05, a: (pdo & 0x3FF) * 0.01 };
+  if (kind === 1) return { t: 'Battery', v: ((pdo >>> 20) & 0x3FF) * 0.05, a: null, v0: ((pdo >>> 10) & 0x3FF) * 0.05, w: (pdo & 0x3FF) * 0.25 };
+  if (kind === 2) return { t: 'Variable', v: ((pdo >>> 20) & 0x3FF) * 0.05, a: (pdo & 0x3FF) * 0.01, v0: ((pdo >>> 10) & 0x3FF) * 0.05 };
+  const sup = (pdo >>> 28) & 3;
+  if (sup === 0) { const mxV = ((pdo >>> 17) & 0xFF) * 0.1, mnV = ((pdo >>> 8) & 0xFF) * 0.1, mxI = (pdo & 0x7F) * 0.05;
+    return { t: 'PPS', v: mxV, a: mxI, pps: [mnV, mxV] }; }
+  if (sup === 1) { const mxV = ((pdo >>> 17) & 0x1FF) * 0.1, mnV = ((pdo >>> 8) & 0xFF) * 0.1, pdp = pdo & 0xFF;
+    return { t: 'AVS', v: mxV, a: null, pps: [mnV, mxV], w: pdp }; }
+  return { t: `APDO/sup${sup}`, v: 0, a: null };
+}
+function pdoRow(i, d) {
+  if (d.t === 'PPS' || d.t === 'AVS') return `<div><small>PDO${i}: <b>${d.t} ${d.pps[0].toFixed(1)}–${d.pps[1].toFixed(1)}V${d.a != null ? ` × ${d.a.toFixed(2)}A = ${(d.v * d.a).toFixed(1)}W` : ` · ${d.w.toFixed(0)}W PDP`}</b></small></div>`;
+  if (d.t === 'Battery') return `<div><small>PDO${i}: <b>Battery ${d.v0.toFixed(2)}–${d.v.toFixed(2)}V · ${d.w.toFixed(1)}W</b></small></div>`;
+  if (d.t === 'Variable') return `<div><small>PDO${i}: <b>Variable ${d.v0.toFixed(2)}–${d.v.toFixed(2)}V × ${d.a.toFixed(2)}A</b></small></div>`;
+  return `<div><small>PDO${i}: <b>${d.v.toFixed(2)}V × ${d.a.toFixed(2)}A = ${(d.v * d.a).toFixed(1)}W</b></small></div>`;
+}
+
+// ---- PD summary from `pd pdo` Fixed lines (max PDO -> W) ----
+const pdos = [];
+// Gate every decoded PDO before it can touch the table: values outside any
+// legal PD range, or a message whose PDOs aren't plausible + ascending as a
+// set, is framing-slip garbage (cf. the 0.2V/0.4V/3.2V×0A rows) — drop the
+// whole message and say so instead of appending forever.
+function pdoPlausible(d) {
+  if (!(d.v >= 2.5 && d.v <= 60)) return false;
+  if (d.a != null && !(d.a >= 0.05 && d.a <= 10)) return false;
+  if (d.pps && !(d.pps[0] >= 2.5 && d.pps[0] <= d.pps[1])) return false;
+  if (d.v0 != null && !(d.v0 >= 2.5 && d.v0 <= d.v)) return false;
+  if (d.w != null && d.a == null && !(d.w > 0 && d.w <= 500)) return false;
+  return true;
+}
+function mergePdoDecoded(list, source) {
+  const clean = list.filter(d => d.t !== 'Pad' && d.v > 0);
+  if (!clean.length) return 0;
+  const bad = clean.find(d => !pdoPlausible(d));
+  const fvs = clean.filter(d => d.t === 'Fixed').map(d => d.v);
+  const ordered = fvs.every((v, i) => i === 0 || v >= fvs[i - 1] - 1e-9);
+  const firstOk = clean[0].t === 'Fixed' && Math.abs(clean[0].v - 5) < 0.06; // vSafe5V leads every Source_Cap
+  if (bad || !ordered || !firstOk) { log(`ignoring incoherent PDO message (${source})`); return 0; }
+  let added = 0;
+  for (const d of clean) {
+    if (pdos.length >= 10) { log('PDO table full (10) — Get contract for a clean read'); break; }
+    if (!pdos.some(p => p.t === d.t && p.v === d.v && p.a === d.a)) { pdos.push(d); added++; }
+  }
+  return added;
+}
+// ---- Binary PDO fallback: `pdo:4,<16 raw bytes>` when the text renderer chokes (PPS bricks) ----
+let serRaw = new Uint8Array(0);
+function feedPdBinary(chunk) {
+  const joined = new Uint8Array(serRaw.length + chunk.length);
+  joined.set(serRaw); joined.set(chunk, serRaw.length);
+  serRaw = joined.length > 4096 ? joined.slice(-4096) : joined;
+  for (let i = serRaw.length - 1; i >= 4; i--) {
+    if (serRaw[i - 4] === 0x70 && serRaw[i - 3] === 0x64 && serRaw[i - 2] === 0x6F && serRaw[i - 1] === 0x3A) {
+      const n = serRaw[i] - 0x30;
+      if (n < 1 || n > 7) continue;
+      const start = i + 2;
+      if (serRaw.length < start + 4 * n) return;
+      log(`pdo blob (${n}):`, hex(serRaw.buffer.slice(start, start + 4 * n)));
+      const dvb = new DataView(serRaw.buffer, serRaw.byteOffset + start, 4 * n);
+      const list = [];
+      for (let k = 0; k < n; k++) list.push(decodePdo(dvb.getUint32(4 * k, true)));
+      const added = mergePdoDecoded(list, 'serial-binary');
+      if (added) { log(`decoded ${added} PDO(s) from binary`); updatePdInfo(); }
+      serRaw = new Uint8Array(0);
+      return;
+    }
+  }
+}
+function updatePdInfo() {
+  const list = document.getElementById('pdList');
+  if (!pdos.length) {
+    list.innerHTML = '<small>no contract read yet</small>';
+    updateActive();
+    return;
+  }
+  const watts = (p) => p.a != null ? p.v * p.a : (p.w || 0);
+  const fixed = pdos.filter(p => p.t === 'Fixed');
+  const head = (fixed.length ? fixed : pdos).reduce((a, b) => (watts(a) > watts(b) ? a : b));
+  list.innerHTML = pdos.map((p, i) => pdoRow(i + 1, p)).join('') +
+    `<div><small>headline: <b>${watts(head).toFixed(0)}W</b> max fixed · wire revision/contract via sniffer below</small></div>`;
+  updateActive();
+}
+function feedPd(t) {
+  // serial arrives chunked; match Fixed PDOs and PPS/APDO ranges
+  for (const m of t.matchAll(/Fixed:\s*([\d.]+)V\s*([\d.]+)A/g)) {
+    const v = +m[1], a = +m[2];
+    const d = { t: 'Fixed', v, a };
+    if (!pdoPlausible(d)) { log(`ignoring implausible PDO (serial-text): ${v}V ${a}A`); continue; }
+    if (!pdos.some(p => p.t === 'Fixed' && p.v === v && p.a === a)) pdos.push(d);
+  }
+  for (const m of t.matchAll(/PPS:\s*([\d.]+)\s*-\s*([\d.]+)V\s*([\d.]+)A/g)) {
+    const v0 = +m[1], v1 = +m[2], a = +m[3];
+    const d = { t: 'PPS', v: v1, a, pps: [v0, v1] };
+    if (!pdoPlausible(d)) { log(`ignoring implausible PDO (serial-text): PPS ${v0}-${v1}V ${a}A`); continue; }
+    if (!pdos.some(p => p.t === 'PPS' && p.v === v1)) pdos.push(d);
+  }
+  if (pdos.length) updatePdInfo();
+}
+document.getElementById('pdCsv').onclick = () => {
+  if (!pdos.length) return log('nothing to export — read the contract first');
+  const rows = ['idx,type,voltage_V,current_A,power_W,min_voltage_V,pdp_W'];
+  pdos.forEach((p, i) => {
+    const w = p.a != null ? p.v * p.a : (p.w || 0);
+    const lo = p.pps ? p.pps[0].toFixed(2) : (p.v0 != null ? p.v0.toFixed(2) : '');
+    rows.push(`${i + 1},${p.t},${(p.v || 0).toFixed(3)},${p.a != null ? p.a.toFixed(3) : ''},${w.toFixed(2)},${lo},${p.w != null && p.a == null ? p.w.toFixed(1) : ''}`);
+  });
+  downloadCsv(`recharge-pdos-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`, rows.join('\n') + '\n');
+  log(`exported ${pdos.length} PDOs to CSV`);
+};
+
+document.getElementById('pdClear').onclick = () => {
+  pdos.length = 0; wirePdo = 0;
+  updatePdInfo();
+  log('PDO table cleared — reread via Get contract or Watch wire');
+};
+
+// ---- WebSerial ----
+let port = null, reader = null, serAlive = false;
+async function serWrite(s, ms = 5000) {
+  const w = port.writable.getWriter();
+  try {
+    await Promise.race([
+      w.write(new TextEncoder().encode(s + '\n')),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('serial write timed out')), ms)),
+    ]);
+  } finally { try { w.releaseLock(); } catch (e) {} }
+}
+// hang-proof teardown: every step is timeout-guarded, so a wedged dongle
+// can delay this path but never stall the page. Detaches globals first so
+// the read loop exits instead of re-acquiring a reader mid-teardown.
+async function dropSerial(statMsg) {
+  serAlive = false;
+  const p = port, r = reader;
+  port = null; reader = null;
+  if (r) {
+    try { await Promise.race([r.cancel(), new Promise(res => setTimeout(res, 1500))]); } catch (e) {}
+    await new Promise(res => setTimeout(res, 100)); // let the loop's finally release
+    try { r.releaseLock(); } catch (e) {}
+  }
+  if (p) {
+    try { await Promise.race([p.close(), new Promise((_, rej) => setTimeout(() => rej(new Error('close timeout')), 2000))]); }
+    catch (e) { log('serial close: ' + (e.message || e)); }
+  }
+  if (statMsg != null) document.getElementById('serStat').textContent = statMsg;
+}
+document.getElementById('serConnect').onclick = async () => {
+  port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x5FC9 }] });
+  await port.open({ baudRate: 115200 }); // ignored by firmware
+  log('serial open');
+  pdos.length = 0; wirePdo = 0; updatePdInfo();
+  serAlive = true;
+  (async () => {
+    while (serAlive && port && port.readable) {
+      reader = port.readable.getReader();
+      try { for (;;) { const { value, done } = await reader.read(); if (done) break; if (value) { const t = new TextDecoder().decode(value); log('<', t); feedPd(t); feedPdBinary(value); } } }
+      catch (e) { break; } finally { reader.releaseLock(); }
+    }
+  })();
+};
+let serBusy = false;
+document.getElementById('serPdm').onclick = async () => {
+  if (serBusy) return;
+  serBusy = true;
+  document.getElementById('serPdm').disabled = true;
+  pdos.length = 0; wirePdo = 0; serRaw = new Uint8Array(0); updatePdInfo();
+  const st = document.getElementById('serStat');
+  st.textContent = 'reading contract… (charging will blip)';
+  try {
+    for (const c of ['pdm open', 'entry pd', 'pd pdo']) { log('>', c); await serWrite(c); await new Promise(r => setTimeout(r, 900)); }
+    // an open PDM session keeps owning the PD engine (charger parks at 5V,
+    // downstream negotiation flaps) — release it unless asked to stay.
+    const auto = document.getElementById('serPdmAuto').checked;
+    if (auto) {
+      log('> pdm close (auto-exit)'); await serWrite('pdm close');
+      await new Promise(r => setTimeout(r, 600));
+    }
+    st.textContent = (pdos.length ? `done · ${pdos.length} PDOs` : 'done · no PDOs parsed (see log)') +
+      (auto ? ' · pdm closed' : ' · PDM still open — Exit PDM when done');
+  } finally { serBusy = false; document.getElementById('serPdm').disabled = false; }
+};
+document.getElementById('serSend').onclick = async () => {
+  const box = document.getElementById('serCmd');
+  const c = box.value.trim();
+  if (!c) return;
+  if (!port) { log('connect charger first'); return; }
+  log('>', c); await serWrite(c);
+  box.value = '';
+};
+document.getElementById('serCmd').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('serSend').click();
+});
+document.getElementById('serExit').onclick = async () => {
+  log('>', 'pdm close'); await serWrite('pdm close');
+  await new Promise(r => setTimeout(r, 600));
+  document.getElementById('serStat').textContent = 'pdm closed · engine released — re-plug charger + device to renegotiate';
+};
+document.getElementById('serClose').onclick = async () => {
+  await dropSerial('not connected');
+  log('closed');
+};
+
+// ---- WebHID ----
+let hid = null;
+document.getElementById('hidConnect').onclick = async () => {
+  const devs = await navigator.hid.requestDevice({ filters: [{ vendorId: 0x5FC9 }] });
+  hid = devs[0];
+  await hid.open();
+  log('HID open:', hid.productName, `(pid:${hid.productId.toString(16)})`);
+  hid.oninputreport = (e) => {
+    let buf = sliceBuf(e.data);
+    if (buf.byteLength === 65) buf = buf.slice(1); // strip ReportID if present
+    log('interrupt IN:', hex(buf.slice(0, 64)));
+    log(parseAdc(buf.slice(0, 64)));
+  };
+};
+document.getElementById('hidRead').onclick = async () => {
+  if (!hid) return log('connect first');
+  // HID reports are 64B payload; prepend ReportID 0
+  await hid.sendReport(0, new Uint8Array([...[0x0C,0x00,0x02,0x00], ...new Array(60).fill(0)]));
+  log('sent HID OUT 0C 00 02 00 (+pad to 64B)');
+};
+document.getElementById('hidClose').onclick = async () => { await hid?.close(); hid = null; log('closed'); };
+
+// ---- PD sniffer (bulk GET_DATA PD_PACKET, att=0x010) ----
+let pdTid = 150;
+document.getElementById('pdSniff').onclick = async () => {
+  const out = document.getElementById('pdRaw');
+  try {
+  await usbExcl(async () => {
+    if (!usb) return log('connect WebUSB first');
+    const tid = (pdTid++) & 0xFF;
+    // ENABLE_PD first (capture: 10 60 02 00 -> ACCEPT), then GET_DATA PD_PACKET [0C, tid, 20, 00]
+    await usb.transferOut(1, new Uint8Array([0x10, (tid + 1) & 0xFF, 0x02, 0x00]).buffer);
+    await usb.transferIn(1, 64);
+    await usb.transferOut(1, new Uint8Array([0x0C, tid, 0x20, 0x00]).buffer);
+    const r = await usb.transferIn(1, 512);
+    const buf = sliceBuf(r.data);
+    const dv = new DataView(buf);
+    if (r.data.byteLength < 8) { out.textContent = `short reply ${r.data.byteLength}B: ${hex(buf)} (05=ACCEPT, 06=REJECT — REJECT while PDM trigger holds the PD engine; send pdm close first)`; return; }
+    const ext = dv.getUint32(4, true), eatt = ext & 0x7FFF, size = ext >>> 22;
+    let txt = `id=${tid} ext_att=0x${eatt.toString(16)} size=${size} total=${r.data.byteLength}B\n`;
+    if (eatt === 0x010 && size >= 12 && buf.byteLength >= 20) {
+      const ts = dv.getUint32(8, true), vbus = dv.getUint16(12, true) / 1000,
+            ibus = dv.getInt16(14, true) / 1000, cc1 = dv.getUint16(16, true) / 1000, cc2 = dv.getUint16(18, true) / 1000;
+      txt += `status: t=${ts}ms vbus=${vbus.toFixed(3)}V ibus=${ibus.toFixed(3)}A cc1=${cc1.toFixed(3)}V cc2=${cc2.toFixed(3)}V\n`;
+    }
+    if (buf.byteLength > 20) txt += `events[${buf.byteLength - 20}B]: ${hex(buf.slice(20, Math.min(buf.byteLength, 20 + 128)))}${buf.byteLength - 20 > 128 ? ' …' : ''}\n`;
+    else txt += `no wire events in this poll (idle contract — try during plug-in)`;
+    const dec = decodePdPayload(buf);
+    if (dec) txt += dec;
+    out.textContent = txt;
+    log('pd sniff:', txt.split('\n')[0]);
+  });
+  } catch (e) { out.textContent = 'err: ' + (e.message || e); }
+};
+
+// ---- Active contract, passively (no PDM session, PD engine untouched) ----
+// Ground truth = the Request/RDO on the wire (PDO# = bits28-30, 1-based).
+// The 12B PD status preamble carries no contract info, and an established
+// idle contract returns status only — so Watch latches events as they flow
+// (plug in / renegotiate while watching). Seen Source_Cap PDOs are merged
+// into the table, so a watched plug-in can fill it with zero PDM use.
+let pdMon = false, pdQuiet = false, pdmHeld = false; // PD monitor on / auto-pd hush / PDM holding engine
+let lastPd = 0, pdSoon = false, autoPdOn = false, lastVbusSeen = null, mismatchSince = 0;
+async function autoPdKick() {
+  lastPd = performance.now();
+  const ws = document.getElementById('watchStat');
+  try {
+    if (!pdMon) await pdMonitorEnsure(); // retry: a single Start-time failure must not mute us forever
+    await pdPollOnce();
+    autoPdOn = true;
+    if (ws && (ws.textContent === 'auto-pd off' || ws.textContent === '')) ws.textContent = 'auto-pd on';
+    if (pdQuiet) { pdQuiet = false; log('auto-pd recovered'); }
+  }
+  catch (e) { if (!pdQuiet) { pdQuiet = true; log('auto-pd: ' + (e.message || e) + ' (further errors hushed until recovery)'); } }
+}
+async function pdMonitorEnsure() {
+  const once = () => usbExcl(async () => {
+    if (pdMon) return true;
+    const t0 = (pdTid++) & 0xFF;
+    await usb.transferOut(1, new Uint8Array([0x10, t0, 0x02, 0x00]).buffer);
+    await usb.transferIn(1, 64);
+    pdMon = true;
+    return true;
+  });
+  try { return await once(); }
+  catch (e) { // first transfer after open is often slow — one retry before giving up
+    log('pd monitor enable failed, one retry…');
+    await new Promise(r => setTimeout(r, 400));
+    return once();
+  }
+}
+async function pdPollOnce() {
+  // One passive PD_PACKET read: merges Source_Caps, latches Request→PDO#.
+  // Logs only on change (new PDO# or new table rows), so the 2s auto poll stays silent.
+  return usbExcl(async () => {
+    const tid = (pdTid++) & 0xFF;
+    await usb.transferOut(1, new Uint8Array([0x0C, tid, 0x20, 0x00]).buffer);
+    const r = await usb.transferIn(1, 512);
+    if (r.data.byteLength < 8) {
+      // short reply: type 6 = REJECT, the tell-tale of an open PDM session
+      // holding the PD engine (cf. web-test-1 capture note).
+      const t0b = new Uint8Array(sliceBuf(r.data));
+      if ((t0b[0] & 0x7F) === 6 && !pdmHeld) {
+        pdmHeld = true;
+        log('pd: REJECT — PD engine held by an open PDM session? Press Exit PDM, then re-plug charger');
+        document.getElementById('watchStat').textContent = 'PD held — Exit PDM';
+      }
+      return null;
+    }
+    if (pdmHeld) { pdmHeld = false; document.getElementById('watchStat').textContent = 'auto-pd on'; log('pd: engine responding again'); }
+    const c = sniffContract(sliceBuf(r.data));
+    if (!c) return null;
+    // detach first: a poll can carry a stale 0x22 alongside a fresh contract,
+    // so clear before merging this poll's words/Request below.
+    if (c.events.includes(0x22)) clearContract('PD detach event on wire — PDO table + latched contract cleared');
+    let added = 0;
+    for (const msg of c.msgs) added += mergePdoDecoded(msg.map(decodePdo), 'wire');
+    let changed = added > 0;
+    if (c.reqPdo && c.reqPdo !== wirePdo) { wirePdo = c.reqPdo; wireWhen = Date.now(); changed = true; }
+    if (changed) {
+      updatePdInfo();
+      log(`pd: Request PDO${c.reqPdo || '?'}${added ? ` + ${added} PDO table row(s)` : ''}${c.rev >= 0 ? ` · PD ${PD_REV[c.rev]}` : ''}`);
+    }
+    return c;
+  });
+}
+let wirePdo = 0, wireWhen = 0, watching = false;
+// bounded view: corrupt sizes must truncate, never throw (a RangeError here kills the poll loop)
+function subView(buf, off, len) {
+  const take = Math.max(0, Math.min(len, buf.byteLength - off));
+  return new Uint8Array(buf, off, take);
+}
+function sniffContract(buf) {
+  // focused walk of att=0x010 payloads: Request RDO + Source_Cap PDO words
+  const dv = new DataView(buf);
+  let off = 4;
+  const out = { reqPdo: 0, rev: -1, msgs: [], events: [] };
+  while (off + 4 <= buf.byteLength) {
+    const w = dv.getUint32(off, true);
+    const att = w & 0x7FFF, nxt = (w >> 15) & 1, chunk = (w >> 16) & 0x3F, size = w >>> 22;
+    off += 4;
+    const plen = nxt ? (att === 0x002 ? size * chunk : size) : buf.byteLength - off;
+    if (att === 0x010 && plen >= 12) {
+      const p = subView(buf, off, plen);
+      let o = 12;
+      while (o + 6 <= p.length) {
+        const sf = p[o];
+        if (sf === 0x45) { out.events.push(p[o + 5]); o += 6; continue; } // 0x21 attach / 0x22 detach
+        const wl = (sf & 0x3F) - 5;
+        o += 6;
+        const wire = p.slice(o, o + wl); o += wl;
+        if (wire.length < 2) continue;
+        const hdr = wire[0] | (wire[1] << 8);
+        const mtype = hdr & 0xF, rev = (hdr >> 6) & 3, nobj = (hdr >> 12) & 7;
+        if (mtype === 1 && nobj > 0 && wire.length >= 2 + 4 * nobj) {
+          out.rev = rev;
+          const msg = [];
+          for (let i = 0; i < nobj; i++) {
+            const wo = (wire[2 + 4 * i] | (wire[3 + 4 * i] << 8) | (wire[4 + 4 * i] << 16) | (wire[5 + 4 * i] << 24)) >>> 0;
+            if (wo) msg.push(wo);
+          }
+          if (msg.length) out.msgs.push(msg);
+        } else if (mtype === 2 && wire.length >= 6) {
+          const rdo = wire[2] | (wire[3] << 8) | (wire[4] << 16) | (wire[5] << 24);
+          out.reqPdo = (rdo >>> 28) & 7;
+        }
+      }
+      if (!nxt) break;
+    }
+    off += plen;
+    if (!nxt) break;
+  }
+  return (out.reqPdo || out.msgs.length || out.events.length) ? out : null;
+}
+function pdoShort(d) {
+  if (!d) return '(not in table)';
+  if (d.t === 'PPS' || d.t === 'AVS') return `${d.t} ${d.pps[0].toFixed(1)}–${d.pps[1].toFixed(1)}V`;
+  if (d.t === 'Battery') return `Batt ${d.v0.toFixed(1)}–${d.v.toFixed(1)}V`;
+  if (d.t === 'Variable') return `Var ${d.v0.toFixed(1)}–${d.v.toFixed(1)}V`;
+  return `${d.v.toFixed(2)}V${d.a != null ? ` × ${d.a.toFixed(2)}A` : ''}`;
+}
+function inferFromVbus() {
+  // approximate: nearest Fixed PDO within 0.6V, else enclosing PPS/AVS/Variable range
+  if (!pdos.length || !hist.length) return null;
+  const v = hist[hist.length - 1].vbus;
+  let best = null, bd = 0.6;
+  pdos.forEach((p, i) => {
+    if (p.t === 'Fixed') { const dd = Math.abs(p.v - v); if (dd < bd) { bd = dd; best = { i: i + 1, d: p, v }; } }
+  });
+  if (best) return best;
+  for (let i = 0; i < pdos.length; i++) {
+    const p = pdos[i];
+    const lo = p.pps ? p.pps[0] : p.v0;
+    if (lo != null && v >= lo - 0.3 && v <= p.v + 0.3) return { i: i + 1, d: p, v };
+  }
+  return null;
+}
+function updateActive() {
+  const el = document.getElementById('pdoActive');
+  if (!el) return;
+  const bits = [];
+  if (wirePdo) bits.push(`wire: <b>PDO${wirePdo}</b> ${pdoShort(pdos[wirePdo - 1])} <small>@ ${new Date(wireWhen).toLocaleTimeString()}</small>`);
+  const g = inferFromVbus();
+  if (g) bits.push(`now: ${g.v.toFixed(2)}V ≈ <b>PDO${g.i}</b> ${pdoShort(g.d)}`);
+  el.innerHTML = bits.length ? bits.join(' &nbsp;·&nbsp; ') :
+    '<small>active: unknown — Watch wire during plug-in, or Get contract (takes over PD engine)</small>';
+}
+let lowSince = 0;
+function clearContract(reason) {
+  if (!pdos.length && !wirePdo) return;
+  pdos.length = 0; wirePdo = 0;
+  updatePdInfo(); // refreshes the active line too
+  log(reason);
+  document.getElementById('watchStat').textContent = 'charger detached?';
+}
+function rowContains(row, v, pad = 0.5) {
+  if (!row) return false;
+  if (row.pps) return v >= row.pps[0] - pad && v <= row.pps[1] + pad;
+  if (row.v0 != null) return v >= row.v0 - pad && v <= row.v + pad;
+  return Math.abs(v - row.v) <= Math.max(pad, 1.5);
+}
+function noteVbusPresence(v) {
+  // A connected-but-idle charger holds ~5V; unplugged upstream collapses
+  // below vSafe0V (0.8V max). 1V threshold + 2s debounce rides through
+  // renegotiation dips; a re-latch follows automatically on re-plug.
+  if (v < 1.0) {
+    mismatchSince = 0;
+    if (!lowSince) lowSince = Date.now();
+    if (Date.now() - lowSince > 2000) clearContract('upstream gone (VBUS <1V for 2s) — PDO table + latched contract cleared');
+    lastVbusSeen = v;
+    return;
+  }
+  lowSince = 0;
+  // presence is back: unstick the detached status left by clearContract
+  const ws = document.getElementById('watchStat');
+  if (ws && ws.textContent === 'charger detached?') ws.textContent = autoPdOn ? 'auto-pd on' : '';
+  // a big VBUS jump (plug-in, contract step-up) deserves an immediate PD
+  // poll instead of waiting for the 2s cadence — phones often start at 5V
+  // then step up, and the 5V Request would otherwise stick as a stale latch.
+  if (lastVbusSeen != null && Math.abs(v - lastVbusSeen) > 0.8 && liveTimer && usb && usb.opened && performance.now() - lastPd > 250) pdSoon = true;
+  lastVbusSeen = v;
+  // a latched PDO disagreeing with VBUS for 5s straight is stale (missed
+  // step-up Request, replayed buffer) — drop the latch, keep the table.
+  const row = wirePdo ? pdos[wirePdo - 1] : null;
+  if (wirePdo && row && !rowContains(row, v)) {
+    if (!mismatchSince) mismatchSince = Date.now();
+    if (Date.now() - mismatchSince > 5000) {
+      const n = wirePdo; wirePdo = 0; mismatchSince = 0;
+      updateActive();
+      log(`latched PDO${n} disagrees with VBUS ${v.toFixed(2)}V for 5s — dropping stale latch (table kept)`);
+    }
+  } else mismatchSince = 0;
+}
+document.getElementById('pdWatch').onclick = async () => {
+  const btn = document.getElementById('pdWatch');
+  const st = document.getElementById('watchStat');
+  if (watching) { watching = false; return; }
+  if (!usb || !usb.opened) { log('Watch needs WebUSB — Start live (or Connect WebUSB) first'); return; }
+  watching = true;
+  btn.textContent = 'Stop watch';
+  try { await pdMonitorEnsure(); }
+  catch (e) { log('watch: ENABLE_PD failed — ' + (e.message || e)); watching = false; btn.textContent = 'Watch wire'; return; }
+  log('watching PD wire 60s — plug in / renegotiate now (passive, charging undisturbed)');
+  const end = Date.now() + 60000;
+  while (watching && Date.now() < end) {
+    try { await pdPollOnce(); }
+    catch (e) { log('watch poll err: ' + (e.message || e)); break; }
+    if (watching) st.textContent = `${Math.max(0, Math.ceil((end - Date.now()) / 1000))}s left…`;
+    await new Promise(r => setTimeout(r, 500));
+  }
+  watching = false;
+  btn.textContent = 'Watch wire';
+  st.textContent = wirePdo ? `contract PDO${wirePdo} latched` : 'no wire events (contract was already idle)';
+  updateActive();
+};
+
+// ---- Recover / reset (see card above) ----
+document.getElementById('rstUsb').onclick = async () => {
+  const st = document.getElementById('rstStat');
+  try {
+    stopLive();
+    if (usb) { try { await usb.close(); } catch (e) {} usb = null; pdMon = false; }
+    st.textContent = 'link closed — re-attaching…';
+    await ensureUsb(); // silent when permission persists, chooser only if needed
+    st.textContent = 'link reset · press Start live to poll';
+    log('usb link reset ok');
+  } catch (e) { st.textContent = 'reset failed: ' + (e.message || e); log('rstUsb err: ' + (e.message || e)); }
+};
+document.getElementById('rstSes').onclick = async () => {
+  const st = document.getElementById('rstStat');
+  try {
+    if (!usb || !usb.opened) await ensureUsb();
+    stopLive();
+    const ses = async (name, type) => {
+      const t = (pdTid++) & 0xFF;
+      await usb.transferOut(1, new Uint8Array([type, t, 0x00, 0x00]).buffer);
+      const r = await usb.transferIn(1, 64);
+      const b = new Uint8Array(sliceBuf(r.data));
+      const tp = b.length ? b[0] & 0x7F : -1;
+      log(`session: ${name} -> ${tp === 5 ? 'ACCEPT' : tp === 6 ? 'REJECT' : 'type 0x' + tp.toString(16)} (id ${t})`);
+    };
+    await ses('STOP_GRAPH', 0x0F);
+    await ses('RESET', 0x04);
+    await ses('CONNECT', 0x02);
+    pdMon = false; // session-level reset likely drops the monitor; next Start re-enables
+    st.textContent = 'session reset sent — see log; press Start live';
+  } catch (e) { st.textContent = 'session reset failed: ' + (e.message || e); log('rstSes err: ' + (e.message || e)); }
+};
+document.getElementById('rstBoot').onclick = () => {
+  if (!port) { log('reboot needs serial — Connect charger first'); return; }
+  if (!confirm('Try rebooting the POWER-Z dongle? If the firmware knows `reboot`, links will drop and you reconnect. If not, nothing happens.')) return;
+  const st = document.getElementById('rstStat');
+  st.textContent = 'sending reboot… watching for the dongle to drop';
+  (async () => {
+    try { log('> reboot'); await serWrite('reboot', 2000); }
+    catch (e) { log('reboot send: ' + (e.message || e)); st.textContent = 'reboot not sent'; return; }
+    for (let i = 0; i < 12; i++) { // up to ~3s: a real reboot drops USB+serial fast
+      await new Promise(r => setTimeout(r, 250));
+      if (!port && !usb) break;
+    }
+    if (!port && !usb) {
+      st.textContent = 'dongle rebooted — reconnect USB + serial';
+      log('reboot took effect (links dropped) — use Connect / Start to re-attach');
+    } else if (!port || !usb) {
+      st.textContent = 'half the links dropped — reconnect the dead one';
+      log('partial drop after reboot — re-attach whichever link died');
+    } else {
+      st.textContent = 'no reboot detected — `reboot` likely unknown, links kept';
+      log('no disconnect within 3s — firmware probably ignores `reboot`; links untouched');
+    }
+  })().catch(e => log('reboot flow: ' + (e.message || e)));
+};
+
+// ---- PD wire decode (Source_Cap revision + PDOs, Request contract) ----
+const PD_REV = ['1.0', '2.0', '3.x', 'rsvd'];
+function decodePdPayload(buf) {
+  // buf = full PUT_DATA reply; find first att=0x010 logical packet payload
+  const dv = new DataView(buf);
+  let off = 4, out = '';
+  while (off + 4 <= buf.byteLength) {
+    const w = dv.getUint32(off, true);
+    const att = w & 0x7FFF, nxt = (w >> 15) & 1, chunk = (w >> 16) & 0x3F, size = w >>> 22;
+    off += 4;
+    const plen = nxt ? (att === 0x002 ? size * chunk : size) : buf.byteLength - off;
+    if (att === 0x010 && plen >= 12) {
+      out += decodePdEvents(subView(buf, off, plen));
+      if (!nxt) break;
+    }
+    off += plen;
+    if (!nxt) break;
+  }
+  return out;
+}
+function decodePdEvents(p) {
+  const dv = new DataView(p.buffer, p.byteOffset, p.byteLength);
+  let o = 12, txt = '';
+  while (o + 6 <= p.length) {
+    const sf = p[o];
+    if (sf === 0x45) { const code = p[o + 5]; txt += code === 0x22 ? '\nPD detach' : code === 0x21 ? '\nPD attach' : `\nPD event 0x${code.toString(16)}`; o += 6; continue; }
+    const sop = p[o + 5], wl = (sf & 0x3F) - 5;
+    o += 6;
+    const wire = p.slice(o, o + wl); o += wl;
+    if (wire.length < 2) continue;
+    const hdr = wire[0] | (wire[1] << 8);
+    const mtype = hdr & 0xF, rev = (hdr >> 6) & 3, nobj = (hdr >> 12) & 7;
+    if (mtype === 1 && nobj > 0 && wire.length >= 2 + 4 * nobj) {
+      const rows = [];
+      for (let i = 0; i < nobj; i++) {
+        const w = (wire[2 + 4 * i] | (wire[3 + 4 * i] << 8) | (wire[4 + 4 * i] << 16) | (wire[5 + 4 * i] << 24)) >>> 0;
+        if (w === 0) continue; // EPR zero-padding
+        const d = decodePdo(w);
+        rows.push(d.t === 'Fixed' ? `${d.v.toFixed(2)}V/${d.a.toFixed(2)}A`
+          : d.t === 'PPS' ? `PPS ${d.pps[0].toFixed(1)}–${d.pps[1].toFixed(1)}V/${d.a.toFixed(2)}A`
+          : d.t === 'AVS' ? `AVS ${d.pps[0].toFixed(1)}–${d.pps[1].toFixed(1)}V/${d.w.toFixed(0)}W`
+          : d.t === 'Battery' ? `Bat ${d.v0.toFixed(1)}–${d.v.toFixed(1)}V/${d.w.toFixed(1)}W`
+          : d.t === 'Variable' ? `Var ${d.v0.toFixed(1)}–${d.v.toFixed(1)}V/${d.a.toFixed(2)}A` : d.t);
+      }
+      txt += `\nSource_Cap: PD ${PD_REV[rev]} · ${rows.join(', ')}`;
+    } else if (mtype === 2 && wire.length >= 6) {
+      const rdo = wire[2] | (wire[3] << 8) | (wire[4] << 16) | (wire[5] << 24);
+      txt += `\nRequest: PDO${(rdo >>> 28) & 7} (contract)`;
+    }
+  }
+  return txt;
+};
+
+if (!('usb' in navigator)) log('WebUSB not available in this browser');
+if (!('serial' in navigator)) log('WebSerial not available in this browser');
+if (!('hid' in navigator)) log('WebHID not available in this browser');
+// Survive de-enumeration (brownout/crash reboot): drop dead handles loudly
+// so Start/Connect re-attaches instead of erroring on a stale object.
+if ('usb' in navigator) {
+  navigator.usb.addEventListener('disconnect', (e) => {
+    if (usb && e.device === usb) {
+      stopLive(); usb = null; pdMon = false;
+      log('USB disconnected (de-enumerated?) — press Start live to re-attach, no reload needed');
+      document.getElementById('liveStat').textContent = 'device disconnected';
+    }
+  });
+  navigator.usb.addEventListener('connect', () => log('USB device enumerated — Start / Connect to attach'));
+}
+if ('serial' in navigator) {
+  navigator.serial.addEventListener('disconnect', () => {
+    if (!port) return;
+    dropSerial('device disconnected — reconnect');
+    log('serial disconnected — use Connect charger to re-attach');
+  });
+  navigator.serial.addEventListener('connect', () => log('serial device enumerated — Connect charger to attach'));
+}
+drawGraph(); // paint empty grid before first sample
+window.addEventListener('pagehide', () => { // release claims on tab close/reload so the next open starts clean
+  try { stopLive(); } catch (e) {}
+  try { serAlive = false; } catch (e) {}
+  try { reader?.cancel()?.catch(() => {}); } catch (e) {}
+  try { port?.close()?.catch(() => {}); } catch (e) {}
+  try { usb?.close()?.catch(() => {}); } catch (e) {}
+  port = null; reader = null; usb = null;
+});
+</script>
+</body>
+</html>
