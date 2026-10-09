@@ -34,7 +34,7 @@ function harness() {
     ${graphSource}
     ${zoomSource}
     return {
-      drawTrace, drawGraph, plot: () => lastPlot,
+      drawTrace, drawGraph, yTicks, plot: () => lastPlot,
       setHistory: points => { hist.splice(0, hist.length, ...points); },
       historySize: () => hist.length,
       setCapture: mode => { streamOn = mode === 'stream'; liveTimer = mode === 'poll' ? 1 : null; },
@@ -93,15 +93,91 @@ function runTests() {
       equal(ctx.paths[0].at(-1), ['L', (count - 1) * 100 / count, 5], `Last sample at ${count}`);
     }
   });
-  test('axis limits relax gradually across redraws and expand immediately for a peak', () => {
+  test('live axis limits expand in steps without easing on redraws', () => {
     const { api } = harness();
-    api.setHistory([{ t: 0, vbus: 10 }]); api.drawGraph();
-    const high = api.plot().lim.vbus[1];
-    api.setHistory([{ t: 1000, vbus: 5 }]); api.drawGraph();
-    const relaxed = api.plot().lim.vbus[1];
-    assert(relaxed < high && relaxed > 6, 'Limits retain the prior scale and relax gradually');
-    api.setHistory([{ t: 2000, vbus: 20 }]); api.drawGraph();
-    assert(api.plot().lim.vbus[1] > 20, 'A new peak expands the axis immediately');
+    api.setCapture('stream'); api.setHistory([{ t: 100000, vbus: 5.1 }]); api.drawGraph();
+    equal(api.plot().lim.vbus, [0, 6], '5.1V uses the smallest voltage range');
+    for (let i = 1; i <= 30; i++) {
+      api.setHistory([{ t: 100000 + i * 1000, vbus: 5.1 + i % 2 * 0.1 }]); api.drawGraph();
+      equal(api.plot().lim.vbus, [0, 6], 'Minor changes and redraws keep the same range');
+    }
+    api.setHistory([{ t: 131000, vbus: 9.1 }]); api.drawGraph();
+    equal(api.plot().lim.vbus, [0, 10], 'A new rail expands the axis immediately');
+  });
+  test('voltage ranges fit SPR, legacy/intermediate rails, and EPR with headroom', () => {
+    for (const [volts, top] of [[5.1, 6], [9.2, 10], [12.2, 13], [15.2, 16], [20.2, 21], [24.2, 26], [28.2, 30], [36.2, 38], [48.2, 51], [60, 65]]) {
+      const { api } = harness(); api.setHistory([{ t: 100000, vbus: volts }]); api.drawGraph();
+      equal(api.plot().lim.vbus, [0, top], `Range for ${volts}V`);
+    }
+  });
+  test('normal +5 percent rail tolerance does not force a larger voltage range', () => {
+    for (const [nominal, top] of [[5, 6], [9, 10], [12, 13], [15, 16], [20, 21], [24, 26], [28, 30], [36, 38], [48, 51]]) {
+      const { api } = harness(); api.setHistory([{ t: 100000, vbus: nominal * 1.05 }]); api.drawGraph();
+      equal(api.plot().lim.vbus, [0, top], `${nominal}V at its normal tolerance limit`);
+    }
+  });
+  test('current and power use independent steps, including small currents', () => {
+    const { api, nodes } = harness(); nodes.gI.checked = true; nodes.gP.checked = true;
+    api.setHistory([{ t: 100000, vbus: 5.1, ibus: 0.12, pwr: 0.612 }]); api.drawGraph();
+    equal(api.plot().lim, { vbus: [0, 6], ibus: [0, 0.2], pwr: [0, 1] }, 'Each unit has its own useful range');
+  });
+  test('zoom and pan retain every axis even when a peak is outside the visible window', () => {
+    for (const zero of [true, false]) {
+      const { api, nodes } = harness(); nodes.gI.checked = true; nodes.gP.checked = true; nodes.gZero.checked = zero;
+      const points = Array.from({ length: 601 }, (_, i) => ({ t: 100000 + i * 100, vbus: 5.1, ibus: 0.12, pwr: 0.612 }));
+      points[10] = { t: 101000, vbus: 20.2, ibus: 4.8, pwr: 96.96 };
+      api.setHistory(points); api.drawGraph();
+      const ranges = JSON.stringify(api.plot().lim), plot = api.plot(), x = plot.padL + plot.iw * 0.7;
+      for (let i = 0; i < 8; i++) {
+        api.wheel(x, -100); equal(JSON.stringify(api.plot().lim), ranges, 'Zoom leaves all Y ranges unchanged');
+      }
+      for (const deltaX of [-100, -10000, 100, 10000]) {
+        api.wheel(x, 0, { deltaX }); equal(JSON.stringify(api.plot().lim), ranges, 'Panning leaves all Y ranges unchanged');
+      }
+    }
+  });
+  test('live scales shrink only after 15 seconds of sustained lower history', () => {
+    const { api } = harness(); api.setCapture('stream');
+    api.setHistory([{ t: 100000, vbus: 20.2 }]); api.drawGraph();
+    for (let i = 0; i < 15; i++) {
+      api.setHistory([{ t: 101000 + i * 1000, vbus: 5.1 }]); api.drawGraph();
+      equal(api.plot().lim.vbus, [0, 21], 'No early shrink after higher data leaves the history buffer');
+    }
+    api.setHistory([{ t: 116000, vbus: 5.1 }]); api.drawGraph();
+    equal(api.plot().lim.vbus, [0, 6], 'Sustained lower data changes directly to the smaller step');
+  });
+  test('scale hysteresis resets on boundary noise, pause, and capture gaps', () => {
+    const { api } = harness(); api.setCapture('stream');
+    api.setHistory([{ t: 100000, vbus: 15.2 }]); api.drawGraph();
+    for (let i = 1; i <= 40; i++) {
+      api.setHistory([{ t: 100000 + i * 1000, vbus: i % 10 === 0 ? 13.1 : 12.2 }]); api.drawGraph();
+      equal(api.plot().lim.vbus, [0, 16], 'Boundary noise prevents oscillation');
+    }
+    api.setHistory([{ t: 141000, vbus: 5.1 }]); api.drawGraph();
+    api.setCapture('paused'); api.setHistory([{ t: 200000, vbus: 5.1 }]); api.drawGraph();
+    equal(api.plot().lim.vbus, [0, 16], 'Paused graph holds its scale');
+    api.setCapture('stream'); api.drawGraph();
+    equal(api.plot().lim.vbus, [0, 16], 'Resuming does not count the pause toward shrink time');
+    api.setHistory([{ t: 230000, vbus: 5.1 }]); api.drawGraph();
+    equal(api.plot().lim.vbus, [0, 16], 'A gap without samples restarts shrink timing');
+  });
+  test('hidden series keep their scale and Clear allows a fresh smaller range', () => {
+    const { api, nodes } = harness();
+    api.setHistory([{ t: 100000, vbus: 20.2 }]); api.drawGraph();
+    nodes.gV.checked = false; api.drawGraph();
+    api.setHistory([{ t: 101000, vbus: 5.1 }]); nodes.gV.checked = true; api.drawGraph();
+    equal(api.plot().lim.vbus, [0, 21], 'Visibility changes do not discard the scale');
+    api.setHistory([]); api.drawGraph();
+    api.setHistory([{ t: 102000, vbus: 5.1 }]); api.drawGraph();
+    equal(api.plot().lim.vbus, [0, 6], 'Clearing history resets the scale');
+  });
+  test('voltage axis labels include the actual stepped ceiling', () => {
+    const { api } = harness();
+    for (const top of [6, 10, 13, 16, 21, 26, 30, 38, 51, 65]) {
+      const ticks = api.yTicks(0, top);
+      equal(ticks.at(-1).v, top, 'Ceiling is explicitly labelled');
+      equal(+ticks.at(-1).lbl, top, 'Label shows the true range');
+    }
   });
   test('paused zoom keeps -13.8s under the cursor with less than 30s of history', () => {
     const { api } = harness(), end = 100000;
