@@ -153,6 +153,24 @@ Notes:
   close the handle and finish closing before re-attaching. Timeouts start
   when a queued USB job actually runs. Await STOP_GRAPH/DISCONNECT teardown
   before a new stream or single-shot loop begins.
+* Mode changes wait for the entire previous capture tick (including any PD
+  read) before clearing the endpoint or sending DISCONNECT/CONNECT. Late
+  callbacks from cancelled captures cannot enqueue follow-up reads or timers.
+  Explicit wire-watch polling pauses during stream initialization.
+* AdcQueue `seq` is a wrapping u16 millisecond counter. Stream time is anchored
+  to host receipt once and advances by device counter deltas, preserving gaps
+  and rejecting replays. A silence of at least 32768ms makes wrap counts
+  ambiguous, so the next batch gets a new receipt-time anchor after retained
+  history. Wall-clock timestamps are estimates; polling latency is not a
+  per-batch timestamp correction.
+* Source_Cap messages replace the PDO table as an ordered snapshot. Duplicate
+  objects and EPR padding retain their original positions for Request mapping
+  and CSV numbering. Changed tables invalidate earlier Requests; messages in
+  the same wire poll are processed in order.
+* Serial text tokens and binary `pdo:N,` frames are reassembled across reads.
+  Failed contract queries attempt `pdm close` in cleanup even when auto-exit is
+  off. Commands stay bound to the original serial connection; unsuccessful
+  cleanup reports that PDM may still be open.
 
 ## USB PD R3.2 PDO layouts (cf. `usbpd` crate `source_capabilities.rs`)
 

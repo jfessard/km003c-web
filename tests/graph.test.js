@@ -5,6 +5,7 @@ const appSource = typeof require === 'function'
 const appScript = appSource.match(/<script>([\s\S]*?)<\/script>/)[1];
 new Function(appScript);
 const graphSource = appScript.slice(appScript.indexOf('const GCOL ='), appScript.indexOf('function clearOverlay()'));
+const zoomSource = appScript.slice(appScript.indexOf("document.getElementById('graphWrap').addEventListener('wheel'"), appScript.indexOf('// hover crosshair with exact'));
 function assert(condition, message) { if (!condition) throw new Error(message); }
 function equal(actual, expected, message) {
   assert(JSON.stringify(actual) === JSON.stringify(expected), `${message}: ${JSON.stringify(actual)} != ${JSON.stringify(expected)}`);
@@ -20,20 +21,25 @@ function canvas() {
   };
 }
 function harness() {
-  const ctx = canvas(), nodes = {};
+  const ctx = canvas(), nodes = {}, handlers = {};
   for (const id of ['gV', 'gI', 'gP', 'gCC1', 'gCC2', 'gDP', 'gDM', 'gZero']) nodes[id] = { checked: id === 'gV' || id === 'gZero' };
-  nodes.graphWindow = { value: '30' }; nodes.graphLegend = {};
+  nodes.graphWindow = { value: '30' }; nodes.graphLegend = {}; nodes.graphStat = {};
   nodes.graph = { clientWidth: 1000, clientHeight: 220, getContext: () => ctx };
+  nodes.graphWrap = { getBoundingClientRect: () => ({ left: 0 }), addEventListener: (event, fn) => { handlers[event] = fn; } };
   const api = new Function('nodes', `
     const hist = [], window = { devicePixelRatio: 1 }, performance = { now: () => 0 };
     const document = { getElementById: id => nodes[id] };
     function clearOverlay() {} function drawOverlay() {}
     ${graphSource}
+    ${zoomSource}
     return {
       drawTrace, drawGraph, plot: () => lastPlot,
-      setHistory: points => { hist.splice(0, hist.length, ...points); }
+      setHistory: points => { hist.splice(0, hist.length, ...points); },
+      wheel: (x, deltaY) => nodes.graphWrap.wheel(x, deltaY),
+      timeAt: x => lastPlot.t1 - (1 - (x - lastPlot.padL) / lastPlot.iw) * lastPlot.spanMs
     };
   `)(nodes);
+  nodes.graphWrap.wheel = (clientX, deltaY) => handlers.wheel({ clientX, deltaY, preventDefault() {} });
   return { api, ctx, nodes };
 }
 function runTests() {
@@ -94,6 +100,29 @@ function runTests() {
     api.setHistory([{ t: 2000, vbus: 20 }]); api.drawGraph();
     assert(api.plot().lim.vbus[1] > 20, 'A new peak expands the axis immediately');
   });
+  test('paused zoom keeps -13.8s under the cursor with less than 30s of history', () => {
+    const { api } = harness(), end = 100000;
+    api.setHistory(Array.from({ length: 141 }, (_, i) => ({ t: end - 14000 + i * 100, vbus: 5 })));
+    api.drawGraph();
+    const plot = api.plot(), x = plot.padL + plot.iw * (1 - 13800 / plot.spanMs);
+    const target = api.timeAt(x);
+    for (let i = 0; i < 2; i++) {
+      api.wheel(x, -100);
+      assert(Math.abs(api.timeAt(x) - target) < 1e-6, 'Zoom preserves cursor time rather than moving it to -8.8s');
+    }
+  });
+  test('zoom in and out preserves cursor time near either history boundary', () => {
+    for (const fraction of [0.05, 0.95]) {
+      const { api, nodes } = harness(); nodes.graphWindow.value = '0';
+      api.setHistory(Array.from({ length: 101 }, (_, i) => ({ t: 100000 + i * 100, vbus: 5 })));
+      api.drawGraph();
+      const plot = api.plot(), x = plot.padL + plot.iw * fraction, target = api.timeAt(x);
+      for (const delta of [-100, -100, 100, 100]) {
+        api.wheel(x, delta);
+        assert(Math.abs(api.timeAt(x) - target) < 1e-6, 'History bounds do not shift the cursor anchor');
+      }
+    }
+  });
   return passed;
 }
 try {
@@ -101,7 +130,7 @@ try {
   globalThis.GRAPH_TEST_RESULT = { passed };
   if (typeof console !== 'undefined') console.log(`${passed.length} checks passed\n${passed.join('\n')}`);
 } catch (error) {
-  globalThis.GRAPH_TEST_RESULT = { error: String(error.stack || error) };
+  globalThis.GRAPH_TEST_RESULT = { error: String(error) + (error.stack ? '\n' + error.stack : '') };
   if (typeof console !== 'undefined') console.error(error);
   if (typeof process !== 'undefined') process.exitCode = 1;
 }

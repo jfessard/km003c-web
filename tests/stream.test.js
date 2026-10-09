@@ -15,9 +15,19 @@ const protocol = [
   section('const MEMKEY =', 'function parseQueue('),
   section('async function bulkCmd(', 'async function startStream('),
 ].join('\n');
-function harness() {
+const lifecycle = [
+  section('const SPS_OF =', 'const MEMKEY ='),
+  section('let liveTimer =', 'const hist ='),
+  section('async function startLive()', 'let streamClosing ='),
+  section('function stopLive()', '// ---- High-rate streaming'),
+  section('async function startStream(', '// ---- Live graph'),
+  section('async function closeUsb()', "document.getElementById('usbClose')"),
+  section("document.getElementById('rstSes').onclick", "document.getElementById('rstBoot').onclick"),
+].join('\n');
+function harness(withLifecycle = false) {
   let now = 0, nextId = 1;
-  const timers = new Map(), logs = [];
+  const timers = new Map(), logs = [], nodes = {};
+  const node = id => nodes[id] ||= { value: id === 'liveMode' ? 'ss' : '100', textContent: '', disabled: false, addEventListener() {} };
   const env = {
     log: (...args) => logs.push(args.join(' ')),
     performance: { now: () => now },
@@ -25,19 +35,36 @@ function harness() {
     localStorage: { getItem: () => null, setItem: () => {} },
     setTimeout: (fn, ms) => { const id = nextId++; timers.set(id, { at: now + ms, fn }); return id; },
     clearTimeout: id => timers.delete(id),
+    setInterval: (fn, ms) => { const id = nextId++; timers.set(id, { at: now + ms, fn, interval: ms }); return id; },
+    clearInterval: id => timers.delete(id),
+    document: { getElementById: node },
     btoa: () => '', atob: () => '',
   };
   const api = new Function('env', `
-    const {log, performance, crypto, localStorage, setTimeout, clearTimeout, btoa, atob} = env;
+    const {log, performance, crypto, localStorage, setTimeout, clearTimeout, setInterval, clearInterval, document, btoa, atob} = env;
     let usb = null, claimed = false, pdMon = false, pdTid = 150;
+    let pdSoon = false, lastPd = 0, autoPdOn = false, watching = false;
+    let liveReader = async () => null, streamReader = async () => [], pdReader = async () => {}, monitor = async () => {};
+    const ensureUsb = async () => 'resume';
+    const liveOnce = () => liveReader(), streamOnce = () => streamReader();
+    const pdMonitorEnsure = () => monitor(), autoPdKick = () => { lastPd = performance.now(); return pdReader(); };
+    const pushSample = () => {}, ingestBatch = () => {};
     const sliceBuf = dv => dv.buffer.slice(dv.byteOffset, dv.byteOffset + dv.byteLength);
     const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join(' ');
     ${protocol}
+    ${withLifecycle ? lifecycle : ''}
     return {
       parseAuthReply, readBulkBytes, tryAuth, streamAuth, bulkCmd, streamTeardown, usbExcl,
       aesSelfTest, ecbCrypt, crc32,
       setDevice: d => { usb = d; }, getDevice: () => usb,
-      closing: () => streamClosing, chain: () => usbChain
+      closing: () => streamClosing, chain: () => usbChain,
+      ${withLifecycle ? `startLive, stopLive, startStream, liveIdle, closeUsb,
+        resetSession: () => document.getElementById('rstSes').onclick(),
+        setMode: mode => { document.getElementById('liveMode').value = mode; },
+        setLiveRead: fn => { liveReader = fn; }, setStreamRead: fn => { streamReader = fn; },
+        setPdRead: fn => { pdReader = fn; }, setMonitor: fn => { monitor = fn; },
+        setAuth: fn => { streamAuth = fn; }, requestPd: () => { pdSoon = true; },
+        liveTimer: () => liveTimer, streaming: () => streamOn,` : ''}
     };
   `)(env);
   async function drive(promise) {
@@ -50,12 +77,13 @@ function harness() {
       const first = [...timers].sort((a, b) => a[1].at - b[1].at)[0];
       if (!first) throw new Error('Unsettled promise with no timer');
       timers.delete(first[0]); now = first[1].at; first[1].fn();
+      if (first[1].interval) timers.set(first[0], { ...first[1], at: now + first[1].interval });
     }
     if (!done) throw new Error('Test did not settle');
     if (error) throw error;
     return value;
   }
-  return { api, drive, env, logs, timers };
+  return { api, drive, env, logs, timers, nodes, node };
 }
 function assert(condition, message) { if (!condition) throw new Error(message); }
 function equal(actual, expected, message) {
@@ -80,7 +108,14 @@ function device(chunks = [], productId = 0x63) {
       return result(chunks.shift());
     },
     async close() { this.closes++; this.opened = false; },
+    async clearHalt() {},
   };
+}
+async function flush() { for (let i = 0; i < 64; i++) await Promise.resolve(); }
+function acceptingDevice() {
+  const d = device();
+  d.transferIn = async () => result(new Uint8Array([5, d.writes.at(-1)[1], 0, 0]));
+  return d;
 }
 async function runTests() {
   const passed = [];
@@ -188,13 +223,106 @@ async function runTests() {
     await drive((async () => { await api.closing(); await api.bulkCmd('CONNECT', [2, 0, 0, 0]); })());
     equal(d.writes.map(w => w[0]), [15, 3, 2], 'Teardown order');
   });
+  await test('single-shot to 1000 SPS waits for the pending read before resetting the endpoint', async () => {
+    const { api, drive, timers } = harness(true), d = acceptingDevice(), events = [];
+    api.setDevice(d); api.setAuth(async () => 1);
+    d.clearHalt = async () => { events.push('endpoint reset'); };
+    await drive(api.startLive());
+    let finishRead;
+    api.setLiveRead(() => api.usbExcl(async () => {
+      events.push('ADC started');
+      await d.transferOut(1, new Uint8Array([12, 0, 2, 0]));
+      await new Promise(resolve => { finishRead = resolve; });
+      events.push('ADC finished');
+      return null;
+    }));
+    api.setPdRead(() => api.usbExcl(async () => {
+      events.push('PD read');
+      await d.transferOut(1, new Uint8Array([12, 99, 32, 0]));
+      await d.transferIn(1, 64);
+    }));
+    api.requestPd();
+    timers.get(api.liveTimer()).fn(); await flush();
+    api.setMode('3');
+    const start = api.startLive(); await flush();
+    equal(events, ['ADC started'], 'No clearHalt or stream command during the old read');
+    finishRead(); await drive(start); await drive(api.liveIdle());
+    equal(events, ['ADC started', 'ADC finished', 'endpoint reset', 'PD read'], 'PD continuation belongs to the new stream');
+    equal(d.writes.map(w => w[0]), [12, 3, 2, 14, 12], 'No PD read interleaves with stream initialization');
+    assert(api.streaming(), 'Replacement stream is running');
+    api.stopLive(); await drive(api.closing());
+  });
+  await test('Stop cancels single-shot initialization before its first read', async () => {
+    const { api, drive } = harness(true); api.setDevice(acceptingDevice());
+    let enable, reads = 0;
+    api.setMonitor(() => new Promise(resolve => { enable = resolve; }));
+    api.setLiveRead(async () => { reads++; return null; });
+    const start = api.startLive(); await flush();
+    api.stopLive(); enable(); await drive(start);
+    equal(reads, 0, 'Cancelled startup cannot read');
+    equal(api.liveTimer(), null, 'Cancelled startup cannot schedule a timer');
+  });
+  await test('a failed first single-shot read does not restart its timer', async () => {
+    const { api, drive, node } = harness(true); api.setDevice(acceptingDevice());
+    api.setLiveRead(async () => { throw new Error('first read failed'); });
+    await drive(api.startLive());
+    equal(api.liveTimer(), null, 'Failed capture remains stopped');
+    assert(node('liveStat').textContent.includes('first read failed'), 'Error remains visible');
+  });
+  await test('Stop during authentication tears down without starting a stream', async () => {
+    const { api, drive } = harness(true), d = acceptingDevice(); api.setDevice(d); api.setMode('3');
+    let authenticate;
+    api.setAuth(() => new Promise(resolve => { authenticate = resolve; }));
+    const start = api.startLive(); await flush();
+    assert(authenticate, 'Startup reached authentication');
+    api.stopLive(); authenticate(1); await drive(start);
+    equal(d.writes.map(w => w[0]), [3, 2, 15, 3], 'No START_GRAPH after cancellation');
+    assert(!api.streaming(), 'Stream remains stopped');
+  });
+  await test('changing back to single-shot during authentication serializes the replacement', async () => {
+    const { api, drive } = harness(true), d = acceptingDevice(); api.setDevice(d); api.setMode('3');
+    let authenticate;
+    api.setAuth(() => new Promise(resolve => { authenticate = resolve; }));
+    const first = api.startLive(); await flush();
+    api.setMode('ss'); const replacement = api.startLive(); await flush();
+    equal(d.writes.map(w => w[0]), [3, 2], 'Replacement waits for the cancelled startup');
+    authenticate(1); await drive(Promise.all([first, replacement]));
+    equal(d.writes.map(w => w[0]), [3, 2, 15, 3], 'Cancelled stream teardown completes');
+    assert(!api.streaming() && api.liveTimer() !== null, 'Only the latest single-shot mode runs');
+    api.stopLive();
+  });
+  await test('stream to single-shot waits for an old failed poll and teardown', async () => {
+    const { api, drive } = harness(true), d = acceptingDevice(); api.setDevice(d); api.setMode('3');
+    api.setAuth(async () => 1);
+    let failPoll;
+    api.setStreamRead(() => api.usbExcl(() => new Promise((resolve, reject) => { failPoll = reject; })));
+    await drive(api.startLive()); await flush();
+    assert(failPoll, 'Stream poll is in flight');
+    api.setMode('ss'); const replacement = api.startLive(); await flush();
+    failPoll(new Error('old stream poll failed')); await drive(replacement);
+    equal(d.writes.map(w => w[0]), [3, 2, 14, 15, 3], 'Teardown finishes before replacement capture');
+    assert(!api.streaming() && api.liveTimer() !== null, 'Old error cannot stop the replacement');
+    api.stopLive();
+  });
+  await test('Reset session uses the shared queue after an outstanding read', async () => {
+    const { api, drive } = harness(true), d = acceptingDevice(); api.setDevice(d);
+    let finish;
+    const read = api.usbExcl(async () => {
+      await d.transferOut(1, new Uint8Array([12, 0, 2, 0]));
+      await new Promise(resolve => { finish = resolve; });
+    });
+    await flush(); const reset = api.resetSession(); await flush();
+    equal(d.writes.map(w => w[0]), [12], 'Reset cannot interleave with the read');
+    finish(); await drive(Promise.all([read, reset]));
+    equal(d.writes.map(w => w[0]), [12, 15, 4, 2], 'Reset commands follow the completed read');
+  });
   return passed;
 }
 runTests().then(passed => {
   globalThis.STREAM_TEST_RESULT = { passed };
   if (typeof console !== 'undefined') console.log(`${passed.length} checks passed\n${passed.join('\n')}`);
 }, error => {
-  globalThis.STREAM_TEST_RESULT = { error: String(error.stack || error) };
+  globalThis.STREAM_TEST_RESULT = { error: String(error) + (error.stack ? '\n' + error.stack : '') };
   if (typeof console !== 'undefined') console.error(error);
   if (typeof process !== 'undefined') process.exitCode = 1;
 });

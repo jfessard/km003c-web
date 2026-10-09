@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>km003c-web — POWER-Z browser app</title>
 <style>
-:root{--bg:#191b1e;--card:#23262b;--line:#33373e;--txt:#e8eaed;--mut:#9aa0a6;--acc:#4a9fd8}
+:root{--bg:#17191d;--card:#22252b;--line:#353a43;--txt:#e8eaed;--mut:#a0a7b2;--acc:#5ca9e0;--inset:#1b1e23}
 *{box-sizing:border-box}
-body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;max-width:960px;margin:0 auto;padding:1.5rem 1rem 3rem;background:var(--bg);color:var(--txt)}
-header{display:flex;align-items:baseline;gap:.75rem;flex-wrap:wrap;margin-bottom:.25rem}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;max-width:1040px;margin:0 auto;padding:1.5rem 1rem 3rem;background:var(--bg);color:var(--txt)}
+header{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem}
 h1{font-size:1.4rem;margin:0}
 h1 .pill{font-size:.75rem;background:#2f6f4f;border-radius:99px;padding:.15rem .6rem;vertical-align:middle}
 .sub{color:var(--mut);font-size:.85rem;margin:.25rem 0 1rem}
@@ -16,12 +16,15 @@ h1 .pill{font-size:.75rem;background:#2f6f4f;border-radius:99px;padding:.15rem .
 .card{background:var(--card);border:1px solid var(--line);border-radius:.8rem;padding:1rem;margin:0 0 1rem}
 .card h2{font-size:1rem;margin:0 0 .6rem;color:#cfd3d8}
 .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
-button{background:#2e3238;color:var(--txt);border:1px solid #454b54;border-radius:.5rem;margin:.15rem;padding:.45rem .9rem;cursor:pointer;font-size:.9rem}
+button{background:#2e333b;color:var(--txt);border:1px solid #454d59;border-radius:.5rem;margin:.15rem;padding:.45rem .9rem;cursor:pointer;font-size:.85rem;font-weight:500;line-height:1.4;transition:background .15s,border-color .15s}
 button:hover{background:#3a4047;border-color:#5a636e}
 button.primary{background:#1f6feb;border-color:#1f6feb}
 button.primary:hover{background:#2b7fff}
 button.danger{background:transparent}
 button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+button.quiet{background:transparent;border-color:var(--line);color:var(--mut)}
+button.quiet:hover{background:#2e333b;color:var(--txt);border-color:#5a636e}
 select:disabled{opacity:.45}
 #liveUsbClose .slash{display:none}
 #liveUsbClose:disabled .slash{display:inline}
@@ -68,10 +71,61 @@ label.ser:has(input:focus-visible){outline:2px solid var(--c);outline-offset:2px
 details.card summary{color:#cfd3d8}
 #pdList div{padding:.15rem 0;border-top:1px solid var(--line)}
 #pdList div:first-child{border-top:none}
+.header-note{margin:0;color:var(--mut);font-size:.8rem;letter-spacing:.02em}
+.card-heading{display:flex;align-items:baseline;justify-content:space-between;gap:.75rem;margin-bottom:.6rem}
+.card-heading h2{margin:0 0 .25rem;font-size:1.05rem;color:var(--txt)}
+.card-heading .sub{margin:0;line-height:1.5}
+.contract-actions{display:grid;grid-template-columns:1fr 1.7fr;gap:1rem}
+.action-group{min-width:0}
+.group-heading{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.3rem}
+.group-heading h3{margin:0;font-size:.85rem;font-weight:600}
+.mode-badge{font-size:.68rem;line-height:1.5;border-radius:99px;padding:.1rem .45rem;white-space:nowrap;border:1px solid #355248;background:#21372f;color:#9bd9be}
+.mode-badge.query{border-color:#65543a;background:#362e22;color:#e6c48a}
+.action-note{font-size:.74rem;line-height:1.4;color:var(--mut);margin:.3rem 0 0}
+.session-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:.3rem}
+.session-row button{padding:.3rem .55rem;font-size:.76rem}
+.session-row #serStat{font-size:.76rem}
+.auto-exit{margin:0 .15rem;font-size:.74rem!important}
+.contract-active{margin-top:.6rem;padding:.45rem .65rem;border:1px solid #35475a;border-left:3px solid var(--acc);border-radius:.5rem;background:#1b2631;font-size:.82rem;line-height:1.5}
+.results-toolbar{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin:.5rem 0 .15rem}
+.results-toolbar h3{margin:0;font-size:.76rem;font-weight:600;letter-spacing:.05em;color:var(--mut)}
+.results-toolbar button{font-size:.76rem;padding:.3rem .6rem}
+#pdList{font-variant-numeric:tabular-nums}
+#pdList div{padding:.25rem .15rem;font-size:.82rem;line-height:1.4}
+.command-panel{margin-top:.85rem;border-top:1px solid var(--line);padding-top:.75rem}
+.command-panel summary{font-size:.8rem;color:var(--mut);cursor:pointer}
+.command-panel[open] summary{color:var(--txt);margin-bottom:.65rem}
+.command-panel .row{margin-top:.5rem}
+.command-panel input{flex:1;min-width:0;width:12rem;background:#111;color:var(--txt);border:1px solid var(--line);border-radius:.4rem;padding:.5rem .65rem;font:12px ui-monospace,Consolas,monospace}
+.command-help{display:none;margin-top:.65rem;font-size:.78rem;color:var(--mut);border:1px solid var(--line);border-radius:.5rem;padding:.65rem .8rem;line-height:1.8;overflow-wrap:anywhere}
+.command-help b{color:var(--txt)}
+.tools-card{padding:0}
+.tools-card>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem}
+.tools-card>summary::-webkit-details-marker{display:none}
+.tools-card>summary::after{content:'';width:8px;height:8px;flex-shrink:0;border-right:1.5px solid var(--mut);border-bottom:1.5px solid var(--mut);transform:rotate(45deg);transition:transform .15s;margin-right:.25rem}
+.tools-card[open]>summary::after{transform:rotate(225deg)}
+.tools-title{display:flex;gap:.65rem;align-items:baseline;flex-wrap:wrap}
+.tools-title strong{font-size:.9rem;font-weight:600}
+.tools-title small{color:var(--mut);font-size:.76rem}
+.tools-content{padding:0 1rem 1rem}
+.debug-grid{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;align-items:start}
+.debug-group{min-width:0;background:var(--inset);border:1px solid var(--line);border-radius:.55rem}
+.debug-group>summary{padding:.75rem;cursor:pointer;font-size:.82rem;font-weight:600}
+.debug-group[open]>summary{border-bottom:1px solid var(--line)}
+.debug-content{padding:.75rem}
+.debug-content .sub{font-size:.76rem;line-height:1.6;margin:0 0 .6rem}
+.debug-content button{font-size:.78rem;padding:.4rem .65rem}
+.debug-content .row{gap:.3rem}
+.debug-meta{display:block;color:var(--mut);font:11px/1.7 ui-monospace,Consolas,monospace;margin-bottom:.65rem;overflow-wrap:anywhere}
+.debug-content #pdRaw{font-size:11px;line-height:1.5;background:#111;border:1px solid var(--line);border-radius:.4rem;padding:.55rem;margin:.6rem 0 0}
+.debug-log{margin-top:1rem;padding-top:.85rem;border-top:1px solid var(--line)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:700px){.contract-actions,.debug-grid{grid-template-columns:1fr}.header-note{display:none}.card-heading .sub{font-size:.8rem}.tools-title{gap:.25rem}.tools-title small{flex-basis:100%}}
+@media(prefers-reduced-motion:reduce){button,.tools-card>summary::after{transition:none}}
 </style>
 </head>
 <body>
-<header><h1>km003c-web <span class="pill" id="devPill">POWER-Z</span> <span id="devSerial" style="font-size:.85rem;color:var(--mut)"></span></h1></header>
+<header><h1>km003c-web <span class="pill" id="devPill">POWER-Z</span> <span id="devSerial" style="font-size:.85rem;color:var(--mut)"></span></h1><p class="header-note">USB-C power monitor</p></header>
 
 <section class="card">
 <div id="dash">
@@ -83,7 +137,7 @@ details.card summary{color:#cfd3d8}
 <div class="row">
 <button id="liveStart" class="primary">START</button>
 <button id="liveStop">Stop</button>
-<button id="liveUsbClose" class="danger" title="Disconnect WebUSB" style="padding:.45rem .6rem" disabled><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2v4M10 2v4M4 6h8v3a4 4 0 0 1-8 0V6zM8 13v2"/><path class="slash" d="M3 13L13 3"/></svg></button>
+<button id="liveUsbClose" class="danger" title="Disconnect WebUSB" aria-label="Disconnect WebUSB" style="padding:.45rem .6rem" disabled><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 2v4M10 2v4M4 6h8v3a4 4 0 0 1-8 0V6zM8 13v2"/><path class="slash" d="M3 13L13 3"/></svg></button>
 <label title="poll interval — single-shot only; streaming uses a fixed cadence"><small>every</small> <select id="liveRate"><option value="50">50 ms</option><option value="100" selected>100 ms</option><option value="250">250 ms</option><option value="500">500 ms</option><option value="1000">1 s</option></select></label>
 <label><small>mode</small> <select id="liveMode" title="single-shot polls ATT_ADC; stream authenticates then samples at device rate"><option value="ss" selected>single-shot</option><option value="3">stream 1000 SPS</option></select></label>
 <span id="liveStat"><small>idle</small></span>
@@ -113,84 +167,111 @@ details.card summary{color:#cfd3d8}
 </section>
 
 <section class="card">
-<h2>Charge contract</h2>
-<p class="sub" style="margin:0 0 .6rem">Reads the charger's PDOs over serial.</p>
+<div class="card-heading">
+<div><h2>Charge contract</h2><p class="sub">Live wire monitoring and the charger's supported power profiles.</p></div>
+</div>
+<div class="contract-actions">
+<div class="action-group">
+<div class="group-heading"><h3>Wire monitoring</h3><span class="mode-badge">Passive</span></div>
 <div class="row">
-<button id="serConnect">Connect charger</button>
-<button id="serPdm" class="primary">Get contract</button>
-<button id="serExit">Exit PDM</button>
-<button id="pdCsv">Export CSV</button>
-<button id="pdClear">Clear</button>
-<button id="pdWatch">Watch wire</button>
-<button id="serClose" class="danger">Close</button>
-<span id="serStat"><small>not connected</small></span>
+<button id="pdWatch" title="Watch for 60 seconds, including while live meters are paused">Watch wire</button>
 <span id="watchStat"><small></small></span>
 </div>
-<div id="pdoActive" style="margin-top:.6rem"><small>active: unknown — Watch wire during plug-in, or Get contract (takes over PD engine)</small></div>
-<div id="pdList" style="margin-top:.6rem"><small>no contract read yet</small></div>
-<div class="row" style="margin-top:.5rem">
-<input id="serCmd" placeholder="custom command, e.g. pd req=2,cur=20000" style="flex:1;min-width:12rem;background:#111;color:var(--txt);border:1px solid var(--line);border-radius:.4rem;padding:.4rem .6rem">
-<button id="serSend">Send</button>
-<button id="serHelp" title="Serial command help">?</button>
+<p class="action-note">Automatic with live. Watch wire runs for 60s while paused.</p>
 </div>
-<div id="serHelpBox" style="display:none;margin-top:.5rem;font-size:.8rem;color:var(--mut);border:1px solid var(--line);border-radius:.5rem;padding:.6rem .8rem;line-height:1.7">
+<div class="action-group">
+<div class="group-heading"><h3>Query charger PDOs</h3><span class="mode-badge query">Interrupts charging</span></div>
+<div class="row">
+<button id="serConnect" title="Connect the dongle's serial interface">Connect serial</button>
+<button id="serPdm" class="primary">Get contract</button>
+<label class="chk auto-exit" title="Release the PD engine after reading. Uncheck to keep PDM open for manual commands."><input type="checkbox" id="serPdmAuto" checked>Auto-exit PDM</label>
+</div>
+<div class="session-row">
+<button id="serExit" class="quiet" title="Release the PD engine">Exit PDM</button>
+<button id="serClose" class="quiet" title="Close the serial connection">Close serial</button>
+<span id="serStat"><small>not connected</small></span>
+</div>
+<p class="action-note">Re-plug charger and device after exiting PDM to renegotiate.</p>
+</div>
+</div>
+<div id="pdoActive" class="contract-active"><small>active: unknown — Watch wire during plug-in, or Get contract (takes over PD engine)</small></div>
+<div class="results-toolbar"><h3>POWER PROFILES</h3><div class="row"><button id="pdCsv" class="quiet">Export CSV</button><button id="pdClear" class="quiet">Clear</button></div></div>
+<div id="pdList"><small>no contract read yet</small></div>
+<details class="command-panel">
+<summary>Manual serial commands</summary>
+<p class="action-note">Connect serial to send commands. Keep PDM open for manual PD requests, then exit when done.</p>
+<div class="row">
+<label for="serCmd" class="sr-only">Serial command</label>
+<input id="serCmd" placeholder="e.g. pd req=2,cur=20000" autocomplete="off" spellcheck="false">
+<button id="serSend">Send</button>
+<button id="serHelp" class="quiet" title="Serial command help" aria-controls="serHelpBox" aria-expanded="false">Help</button>
+</div>
+<div id="serHelpBox" class="command-help" style="display:none">
 <b style="color:var(--txt)">Session</b>: <code>pdm open</code> · <code>pdm close</code> · <code>pdm set type=?,em=?</code> (type 0 auto, 1 PD3.0, 2 PD3.1, 3 priv-PPS; em 0 off, 1 20V5A, 2 50V5A EPR)<br>
 <b style="color:var(--txt)">PD</b>: <code>entry pd</code> then <code>pd pdo</code> (Source_Cap) · <code>pd req=?,cur=?</code> (req = PDO#, e.g. <code>pd req=2,cur=20000</code>) · <code>pd req=?,volt=?,cur=?</code> (PPS/AVS, e.g. <code>pd req=5,volt=12000,cur=20000</code>) · <code>pd cmd=?</code> · <code>pd data=?</code> (1st byte SOP, next 2 header, no CRC)<br>
 <b style="color:var(--txt)">QC</b>: <code>qc 9V</code> · <code>qc3 volt=5000</code> (3600–20000mV) · <code>qc3 inc=8</code> / <code>qc3 dec=6</code> &nbsp; <b style="color:var(--txt)">Others</b>: <code>entry qc|fcp|scp|afc|vfcp|sfcp|ufcs</code> then <code>fcp 9V</code> · <code>scp volt=?,cur=?</code> · <code>vfcp volt=?,cur=?</code> · <code>ufcs pdo</code> · <code>reset</code><br>
 <small>Units are mV/mA. An open PDM session owns the PD engine (charger parks at 5V) — Exit PDM when done. <code>help</code>/<code>reboot</code> get no reply on this firmware. Full syntax: <a href="https://github.com/okhsunrog/km003c-protocol-research/blob/main/docs/official/KM003C_002C%20Protocol%20Trigger%20by%20Virtual%20Serial%20Port%20(Instructions).pdf" style="color:var(--acc)">official virtual-serial trigger doc (PDF)</a>.</small>
 </div>
+</details>
 </section>
 
-<section class="card">
-<h2>Recover / reset</h2>
-<p class="sub" style="margin:0 0 .6rem">For a wedged link or PD engine. Reboot needs serial.</p>
-<div class="row">
-<button id="rstUsb">Reset USB link</button>
-<button id="rstSes" title="Sends STOP_GRAPH → RESET(0x04) → CONNECT; each reply is logged (0x04 is undocumented)">Reset session</button>
-<button id="rstBoot" class="danger">Reboot dongle (serial)</button>
-<span id="rstStat"><small></small></span>
-</div>
-</section>
-
-<details class="card">
-<summary style="cursor:pointer;font-weight:600">Debug · manual USB, HID, PD sniffer, log</summary>
-<div style="margin-top:.8rem">
-<h2>WebUSB · WinUSB IF0, bulk 0x01 OUT / 0x81 IN</h2>
+<details class="card tools-card">
+<summary><span class="tools-title"><strong>Debug &amp; recovery</strong><small>Manual USB · HID · PD sniffer · log</small></span></summary>
+<div class="tools-content">
+<div class="debug-grid">
+<details class="debug-group">
+<summary>Manual USB</summary>
+<div class="debug-content">
+<span class="debug-meta">WebUSB · WinUSB IF0<br>Bulk 0x01 OUT / 0x81 IN</span>
 <div class="row">
 <button id="usbConnect">Connect WebUSB</button>
-<button id="usbRead">Send 0C 00 02 00 + read 64B</button>
+<button id="usbRead" title="Send 0C 00 02 00 and read 64 bytes">Read ADC</button>
 <button id="usbDiag" title="List permitted USB/serial devices without opening anything">Diagnose</button>
-<button id="usbClose" class="danger">Close</button>
+<button id="usbClose" class="quiet">Close USB</button>
 </div>
 </div>
-<div style="margin-top:.8rem">
-<h2>WebHID · IF1 interrupt 0x05 OUT / 0x85 IN, 64B</h2>
+</details>
+<details class="debug-group">
+<summary>Manual HID</summary>
+<div class="debug-content">
+<span class="debug-meta">WebHID · IF1<br>Interrupt 0x05 OUT / 0x85 IN · 64 B</span>
 <div class="row">
 <button id="hidConnect">Connect HID</button>
-<button id="hidRead">Send 0C 00 02 00 + read</button>
-<button id="hidClose" class="danger">Close</button>
+<button id="hidRead" title="Send 0C 00 02 00, padded to a 64-byte HID report">Read ADC</button>
+<button id="hidClose" class="quiet">Close HID</button>
 </div>
 </div>
-<div style="margin-top:.8rem">
-<h2>PD sniffer · bulk GET_DATA PD_PACKET</h2>
+</details>
+<details class="debug-group">
+<summary>PD packet sniffer</summary>
+<div class="debug-content">
+<span class="debug-meta">WebUSB · GET_DATA / PD_PACKET</span>
+<p class="sub">An idle contract returns status only. Read during plug-in to catch wire events.</p>
 <div class="row">
 <button id="pdSniff">Read PD status (WebUSB)</button>
-<span><small>needs WebUSB connected · idle contract returns status only; catch plug-in for wire events</small></span>
 </div>
 <pre id="pdRaw" style="height:120px;max-height:20vh">pd sniffer idle.
 </pre>
 </div>
-<div style="margin-top:.8rem">
-<h2>PDM session · serial</h2>
+</details>
+<details class="debug-group">
+<summary>Recover &amp; reset</summary>
+<div class="debug-content">
+<p class="sub">For a wedged link or PD engine. Reboot needs serial and firmware support.</p>
 <div class="row">
-<label class="chk" title="Always on unless you need the session: uncheck to keep PDM open after Get contract for manual pd commands"><input type="checkbox" id="serPdmAuto" checked>auto-exit PDM after contract read</label>
+<button id="rstUsb">Reset USB link</button>
+<button id="rstSes" title="Sends STOP_GRAPH → RESET(0x04) → CONNECT; each reply is logged (0x04 is undocumented)">Reset session</button>
+<button id="rstBoot" class="quiet">Reboot dongle (serial)</button>
+<span id="rstStat"><small></small></span>
 </div>
-<p class="sub" style="margin:.4rem 0 0">Get contract opens a <code>pdm</code> session, which takes over the dongle's PD engine (charging blips while it reads). Left open, the session keeps owning the engine: the charger parks at 5V, downstream negotiation flaps, and bulk PD reads come back REJECT. Auto-exit sends <code>pdm close</code> when the read finishes so everything re-negotiates cleanly. Uncheck only to keep the session for manual <code>pd …</code> commands — then press Exit PDM (above) when done.</p>
 </div>
-<div style="margin-top:.8rem">
+</details>
+</div>
+<div class="debug-log">
 <div class="logbar"><h2 style="margin:0">Log</h2><span><button id="logCopy" title="Copy log" aria-label="Copy log" style="padding:.35rem .55rem"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="2"/><path d="M11 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h1"/></svg></button> <button id="logClear" class="danger">Clear</button></span></div>
 <pre id="log">ready.
 </pre>
+</div>
 </div>
 </details>
 
@@ -309,7 +390,8 @@ document.getElementById('usbRead').onclick = async () => {
 };
 async function closeUsb() {
   stopLive();
-  await streamClosing;
+  await liveStartChain.catch(() => {});
+  await liveIdle();
   try { await usb?.close(); } catch (e) {}
   usb = null; claimed = false; pdMon = false;
   document.getElementById('liveStat').textContent = 'disconnected';
@@ -341,6 +423,8 @@ setInterval(paintUsbState, 1000);
 
 // ---- Live dashboard (polls single-shot ADC like adc_simple.py) ----
 let liveTimer = null, tickBusy = false;
+let liveRun = 0, liveStarting = false;
+let liveWork = Promise.resolve(), liveStartChain = Promise.resolve();
 const hist = []; // {t, vbus, ibus, pwr, vbusAvg, ibusAvg, tempC, vcc1, vcc2, vdp, vdm}
 const MAXH = 60000; // ~60 s at 1000 SPS
 const IDIR_T = 0.005; // A; |ibus| below this reads as idle (no direction)
@@ -434,36 +518,63 @@ async function ensureUsb() {
   return 'open';
 }
 async function startLive() {
-  const how = await ensureUsb();
-  if (how === 'resume') log('resumed — handle still open, no reconnect');
   stopLive();
-  await streamClosing;
-  const mode = document.getElementById('liveMode').value;
-  if (mode !== 'ss') { await startStream(+mode); return; }
-  try { await pdMonitorEnsure(); autoPdOn = true; document.getElementById('watchStat').textContent = 'auto-pd on'; }
-  catch (e) { autoPdOn = false; document.getElementById('watchStat').textContent = 'auto-pd off'; log('auto-pd enable: ' + (e.message || e)); }
-  const ms = +document.getElementById('liveRate').value;
-  let n = 0, t0 = performance.now();
-  const tick = async () => {
-    if (tickBusy) return; // never pile up behind a slow transfer
-    tickBusy = true;
+  const runId = liveRun;
+  liveStarting = true;
+  // A mode change cancels scheduling immediately, then waits for the whole
+  // old tick (ADC + any PD read), not just its current transfer. Start requests
+  // also serialize, so rapid changes cannot run two initialization sequences.
+  const start = liveStartChain.catch(() => {}).then(async () => {
+    if (runId !== liveRun) return;
+    await liveIdle();
+    if (runId !== liveRun) return;
+    const how = await ensureUsb();
+    if (runId !== liveRun) return;
+    if (how === 'resume') log('resumed — handle still open, no reconnect');
+    const mode = document.getElementById('liveMode').value;
+    if (mode !== 'ss') { await startStream(+mode, runId); return; }
     try {
-      const d = await liveOnce();
-      if (d) { pushSample(d); n++; }
-      if (pdSoon || performance.now() - lastPd > 1000) { pdSoon = false; await autoPdKick(); } // passive contract latch alongside live polling
-      document.getElementById('liveStat').textContent = `${n} reads, ${((n*1000/(performance.now()-t0))).toFixed(1)}/s`;
+      await pdMonitorEnsure();
+      if (runId !== liveRun) return;
+      autoPdOn = true; document.getElementById('watchStat').textContent = 'auto-pd on';
+    } catch (e) {
+      if (runId !== liveRun) return;
+      autoPdOn = false; document.getElementById('watchStat').textContent = 'auto-pd off'; log('auto-pd enable: ' + (e.message || e));
     }
-    catch (e) {
-      stopLive();
-      const gone = !usb || !usb.opened;
-      if (gone) { usb = null; pdMon = false; } // next Start re-attaches (silent if permitted, chooser if not)
-      document.getElementById('liveStat').textContent =
-        'err: ' + (e.message || e) + (gone ? ' · device gone, Start will reconnect' : ' · paused, Start resumes with no reconnect');
-    }
-    tickBusy = false;
-  };
-  await tick();
-  liveTimer = setInterval(tick, ms);
+    const ms = +document.getElementById('liveRate').value;
+    let n = 0, t0 = performance.now();
+    const tick = () => {
+      if (runId !== liveRun || tickBusy) return Promise.resolve();
+      tickBusy = true;
+      liveWork = (async () => {
+        try {
+          const d = await liveOnce();
+          if (runId !== liveRun) return;
+          if (d) { pushSample(d); n++; }
+          if (pdSoon || performance.now() - lastPd > 1000) { pdSoon = false; await autoPdKick(); }
+          if (runId !== liveRun) return;
+          document.getElementById('liveStat').textContent = `${n} reads, ${((n*1000/(performance.now()-t0))).toFixed(1)}/s`;
+        } catch (e) {
+          if (runId !== liveRun) return; // an old failure must not stop the replacement capture
+          stopLive();
+          const gone = !usb || !usb.opened;
+          if (gone) { usb = null; pdMon = false; }
+          document.getElementById('liveStat').textContent =
+            'err: ' + (e.message || e) + (gone ? ' · device gone, Start will reconnect' : ' · paused, Start resumes with no reconnect');
+        } finally { tickBusy = false; }
+      })();
+      return liveWork;
+    };
+    await tick();
+    if (runId === liveRun) liveTimer = setInterval(tick, ms);
+  });
+  liveStartChain = start.finally(() => { if (runId === liveRun) liveStarting = false; });
+  return liveStartChain;
+}
+async function liveIdle() {
+  await liveWork.catch(() => {});
+  await streamClosing;
+  await usbChain; // includes timeout recovery and any already-queued manual reads
 }
 let streamClosing = Promise.resolve();
 function streamTeardown() {
@@ -473,12 +584,14 @@ function streamTeardown() {
     try {
       await bulkCmd('STOP_GRAPH', [0x0F, 0, 0, 0]);
       await bulkCmd('DISCONNECT', [0x03, 0, 0, 0]);
+      pdMon = false;
       log('stream link closed');
     } catch (e) { log('stream teardown: ' + (e.message || e)); }
   });
   return streamClosing;
 }
 function stopLive() {
+  liveRun++; liveStarting = false;
   if (liveTimer) clearInterval(liveTimer); liveTimer = null;
   if (streamTimer) clearTimeout(streamTimer); streamTimer = null;
   if (streamOn) { streamOn = false; streamTeardown(); }
@@ -486,14 +599,14 @@ function stopLive() {
 }
 document.getElementById('liveStart').onclick = () => startLive().catch(e => log('live err: ' + (e.message || e)));
 document.getElementById('liveStop').onclick = () => {
-  const was = !!(liveTimer || streamOn);
+  const was = !!(liveTimer || streamOn || liveStarting);
   stopLive();
   if (was) document.getElementById('liveStat').textContent =
     (usb && usb.opened) ? 'paused · device still open — Start resumes instantly' : 'stopped · no device open';
   if (!watching) document.getElementById('watchStat').textContent = '';
 };
 // rate applies immediately when running (restarts the loop, keeps device + history)
-const restartLive = () => { if (liveTimer || streamOn) startLive().catch(e => log('live err: ' + (e.message || e))); };
+const restartLive = () => { if (liveTimer || streamOn || liveStarting) startLive().catch(e => log('live err: ' + (e.message || e))); };
 document.getElementById('liveRate').addEventListener('change', restartLive);
 document.getElementById('liveMode').addEventListener('change', restartLive);
 
@@ -503,6 +616,7 @@ const MEMKEY = 'Lh2yfB7n6X7d9a5Z', AUTHKEY = 'Fa0b4tA25f4R038a';
 const asc = (s) => Uint8Array.from([...s].map(c => c.charCodeAt(0)));
 let streamTimer = null, streamOn = false;
 let lastSeq = null, dropped = 0, effSps = 0, lastPollT = 0, lastSampleT = 0, emptyWarned = false, zeroRun = 0;
+let streamTime = null, lastQueueArrival = null;
 let corrupt = 0, corruptLogged = 0, pollMs = 0, pollBytes = 0, pollN = 0, lastSummary = 0, lastPollBytes = 0, lastDrawT = 0, drawMs = 0;
 // ---- AES-128 (tiny pure-JS ECB; S-boxes generated from GF(2^8) math, no tables to mistype) ----
 function xt(a, b) { // GF(2^8) multiply (AES polynomial x^8+x^4+x^3+x+1)
@@ -784,9 +898,15 @@ function qPlausible(s) {
     s.vdp >= 0 && s.vdp <= 6 && s.vdm >= 0 && s.vdm <= 6;
 }
 function ingestBatch(samples, idx) {
-  const step = 1000 / SPS_OF[idx], now = Date.now();
-  const items = [];
-  let lastGood = null;
+  const step = 1000 / SPS_OF[idx], now = Date.now(), arrival = performance.now();
+  // The u16 queue counter measures device milliseconds, not sample positions.
+  // After a long silence its wrap count is ambiguous; start a new wall-time
+  // anchor instead of interpreting an old/replayed counter as a huge gap.
+  if (lastQueueArrival != null && arrival - lastQueueArrival >= 32768) {
+    lastSeq = null; streamTime = null;
+  }
+  const accepted = [];
+  let seq = lastSeq, elapsed = 0;
   for (let k = 0; k < samples.length; k++) {
     const s = samples[k];
     if (s.vbus <= 0) {
@@ -796,29 +916,35 @@ function ingestBatch(samples, idx) {
       zeroRun++;
       if (zeroRun < Math.max(3, Math.round(SPS_OF[idx] * 0.2))) {
         corrupt++;
-        lastSeq = null; // re-baseline: garbage seq must not poison the chain
         if (corruptLogged < 8) { corruptLogged++; log(`queue: zero-VBUS sample skipped (seq ${s.seq}) — torn frame?`); }
         continue;
       }
     } else zeroRun = 0;
     if (!qPlausible(s)) {
       corrupt++;
-      lastSeq = null; // re-baseline: garbage seq must not poison the chain
       if (corruptLogged < 8) { corruptLogged++; log(`queue: implausible sample skipped (seq ${s.seq} vbus ${s.vbus} ibus ${s.ibusSigned})`); }
       continue;
     }
-    if (lastSeq != null) {
-      const diff = (s.seq - lastSeq + 65536) % 65536;
+    if (seq != null) {
+      const diff = (s.seq - seq + 65536) % 65536;
       if (diff === 0) continue; // duplicate re-send: ignore
+      if (diff >= 32768) { corrupt++; continue; } // old/reordered sample, not a forward wrap
       dropped += Math.max(0, Math.round((diff - step) / step)); // jitter-proof: only whole missing samples count
+      elapsed += diff;
     }
-    lastSeq = s.seq;
-    lastGood = s;
-    items.push(toHist({ t: now - (samples.length - 1 - k) * step,
+    seq = s.seq;
+    accepted.push({ s, elapsed });
+  }
+  if (!accepted.length) return;
+  // Anchor once per capture. Poll latency cannot move later batches backward
+  // or erase the time occupied by missing samples. Retained single-shot history
+  // also stays before the new stream, including after a host clock adjustment.
+  const base = streamTime ?? Math.max(now - elapsed, hist.length ? hist[hist.length - 1].t + 1 : -Infinity);
+  const items = accepted.map(({ s, elapsed }) => toHist({ t: base + elapsed,
       vbus: s.vbus, ibusSigned: s.ibusSigned, vbusAvg: s.vbus, ibusAvg: s.ibusSigned, tempC: null,
       vcc1: s.vcc1, vcc2: s.vcc2, vdp: s.vdp, vdm: s.vdm }));
-  }
-  if (!items.length) return;
+  lastSeq = seq; streamTime = base + elapsed; lastQueueArrival = arrival;
+  const lastGood = accepted[accepted.length - 1].s;
   pushBatch(items);
   paintLive({ vbus: lastGood.vbus, ibus: lastGood.ibusSigned, vdp: lastGood.vdp, vdm: lastGood.vdm, vcc1: lastGood.vcc1, vcc2: lastGood.vcc2 });
 }
@@ -830,35 +956,46 @@ async function bulkCmd(name, bytes) {
     await device.transferOut(1, new Uint8Array(wb).buffer);
     return readBulkBytes(device, 4, name);
   });
-  if (r[1] !== t) throw new Error(`${name}: mismatched reply id ${r[1]} (expected ${t})`);
+  if (r[1] !== t) throw new Error(`${name}: mismatched reply id ${r[1]} (expected ${t}); reply ${hex(r.buffer)}`);
   const tp = r[0] & 0x7F;
   log(`usb: ${name} -> ${tp === 5 ? 'ACCEPT' : tp === 6 ? 'REJECT' : tp < 0 ? 'empty' : 'type 0x' + tp.toString(16)} (id ${t})`);
   return tp;
 }
-async function startStream(idx) {
+async function startStream(idx, runId = liveRun) {
   lastSeq = null; dropped = 0; effSps = 0; lastPollT = performance.now(); lastSampleT = lastPollT; emptyWarned = false; zeroRun = 0;
+  streamTime = null; lastQueueArrival = null;
   let n = 0;
   if (!aesSelfTest()) {
     document.getElementById('liveStat').textContent = 'AES self-test failed — streaming disabled';
     return;
   }
   const stat = (t) => { document.getElementById('liveStat').textContent = t; };
+  const checkRun = () => { if (runId !== liveRun) throw new Error('capture cancelled'); };
   try {
+    checkRun();
     stat('stream: connecting…');
     try { await usb.clearHalt('in', 1); log('stream: endpoint reset'); }
     catch (e) { log('stream: endpoint reset skipped (' + (e.message || e) + ')'); }
+    checkRun();
     await bulkCmd('DISCONNECT', [0x03, 0, 0, 0]);
+    pdMon = false;
+    checkRun();
     if (await bulkCmd('CONNECT', [0x02, 0, 0, 0]) !== 5)
       throw new Error('CONNECT: no ACCEPT — stale session or device busy (PDM open? try Reset session)');
+    checkRun();
     stat('stream: authenticating…');
     await streamAuth();
+    checkRun();
     stat('stream: starting graph…');
     if (await bulkCmd('START_GRAPH', [0x0E, 0, (idx << 1) & 0xFF, 0x00]) !== 5)
       throw new Error('START_GRAPH: no ACCEPT');
+    checkRun();
   } catch (e) {
-    document.getElementById('liveStat').textContent = 'stream init failed: ' + (e.message || e);
-    log('stream init failed: ' + (e.message || e) + ' — single-shot still works; Exit PDM if a session is open');
-    if (e && e.stack) log('stack: ' + String(e.stack).split('\n').slice(0, 4).join(' | '));
+    if (runId === liveRun) {
+      document.getElementById('liveStat').textContent = 'stream init failed: ' + (e.message || e);
+      log('stream init failed: ' + (e.message || e) + ' — single-shot still works; Exit PDM if a session is open');
+      if (e && e.stack) log('stack: ' + String(e.stack).split('\n').slice(0, 4).join(' | '));
+    }
     await streamTeardown();
     return;
   }
@@ -866,45 +1003,53 @@ async function startStream(idx) {
   document.getElementById('liveRate').disabled = true; // fixed cadence in stream mode
   const gap = idx === 3 ? 30 : 100; // ~10 polls/s keeps tiles lively at every rate
   document.getElementById('liveStat').textContent = `${SPS_OF[idx]} SPS stream starting…`;
-  const loop = async () => {
-    if (!streamOn) return;
-    try {
-      const p0 = performance.now();
-      const samples = await streamOnce(idx);
-      const p1 = performance.now();
-      pollMs = pollMs ? pollMs * 0.8 + (p1 - p0) * 0.2 : p1 - p0;
-      pollBytes += lastPollBytes; pollN++;
-      const now = performance.now();
-      if (samples.length) {
-        const inst = samples.length / Math.max(1, now - lastPollT) * 1000;
-        effSps = effSps ? effSps * 0.7 + inst * 0.3 : inst;
-        lastSampleT = now; emptyWarned = false;
-        ingestBatch(samples, idx);
-        n += samples.length;
-      } else if (!emptyWarned && now - lastSampleT > 5000) {
-        emptyWarned = true;
-        log('queue empty 5s — auth may have failed; Stop and retry, or use single-shot');
+  const loop = () => {
+    if (!streamOn || runId !== liveRun) return Promise.resolve();
+    liveWork = (async () => {
+      try {
+        const p0 = performance.now();
+        const samples = await streamOnce(idx);
+        if (runId !== liveRun) return;
+        const p1 = performance.now();
+        pollMs = pollMs ? pollMs * 0.8 + (p1 - p0) * 0.2 : p1 - p0;
+        pollBytes += lastPollBytes; pollN++;
+        const now = performance.now();
+        if (samples.length) {
+          const inst = samples.length / Math.max(1, now - lastPollT) * 1000;
+          effSps = effSps ? effSps * 0.7 + inst * 0.3 : inst;
+          lastSampleT = now; emptyWarned = false;
+          ingestBatch(samples, idx);
+          n += samples.length;
+        } else if (!emptyWarned && now - lastSampleT > 5000) {
+          emptyWarned = true;
+          log('queue empty 5s — auth may have failed; Stop and retry, or use single-shot');
+        }
+        drawMs = drawMs ? drawMs * 0.8 + (performance.now() - p1) * 0.2 : performance.now() - p1;
+        lastPollT = now;
+        if (pdSoon || now - lastPd > 1000) { pdSoon = false; await autoPdKick(); }
+        if (runId !== liveRun) return;
+        if (now - lastSummary > 5000) {
+          lastSummary = now;
+          log(`stream: ${pollMs.toFixed(0)}ms xfer + ${drawMs.toFixed(0)}ms ingest/draw per poll, ${(pollBytes / Math.max(1, pollN)).toFixed(0)}B/poll, eff ${effSps.toFixed(0)}, dropped ${dropped.toFixed(0)}, corrupt ${corrupt}`);
+          pollBytes = 0; pollN = 0;
+        }
+        document.getElementById('liveStat').textContent =
+          `${SPS_OF[idx]} SPS · ${effSps.toFixed(0)} eff · ${dropped.toFixed(0)} dropped · ${n} samples`;
+      } catch (e) {
+        if (runId !== liveRun) return;
+        streamOn = false;
+        stopLive();
+        const stoppedRun = liveRun;
+        await streamTeardown(); // finish before the next Start can open a new session
+        if (liveRun !== stoppedRun) return;
+        const gone = !usb || !usb.opened;
+        if (gone) { usb = null; pdMon = false; }
+        document.getElementById('liveStat').textContent =
+          'err: ' + (e.message || e) + (gone ? ' · device gone, Start will reconnect' : ' · paused, Start resumes');
       }
-      drawMs = drawMs ? drawMs * 0.8 + (performance.now() - p1) * 0.2 : performance.now() - p1;
-      lastPollT = now;
-      if (pdSoon || now - lastPd > 1000) { pdSoon = false; await autoPdKick(); }
-      if (now - lastSummary > 5000) {
-        lastSummary = now;
-        log(`stream: ${pollMs.toFixed(0)}ms xfer + ${drawMs.toFixed(0)}ms ingest/draw per poll, ${(pollBytes / Math.max(1, pollN)).toFixed(0)}B/poll, eff ${effSps.toFixed(0)}, dropped ${dropped.toFixed(0)}, corrupt ${corrupt}`);
-        pollBytes = 0; pollN = 0;
-      }
-      document.getElementById('liveStat').textContent =
-        `${SPS_OF[idx]} SPS · ${effSps.toFixed(0)} eff · ${dropped.toFixed(0)} dropped · ${n} samples`;
-    } catch (e) {
-      streamOn = false;
-      await streamTeardown(); // finish before the next Start can open a new session
-      stopLive();
-      const gone = !usb || !usb.opened;
-      if (gone) { usb = null; pdMon = false; }
-      document.getElementById('liveStat').textContent =
-        'err: ' + (e.message || e) + (gone ? ' · device gone, Start will reconnect' : ' · paused, Start resumes');
-    }
-    if (streamOn) streamTimer = setTimeout(loop, gap);
+      if (streamOn && runId === liveRun) streamTimer = setTimeout(loop, gap);
+    })();
+    return liveWork;
   };
   loop();
 }
@@ -1069,8 +1214,9 @@ function drawGraph() {
   for (let g = 0; g <= 4; g++) {
     const back = spanMs * (4 - g) / 4;
     const x = padL + iw * g / 4;
-    const lbl = g === 4 ? (behind > 500 ? `-${(behind / 1000).toFixed(0)}s` : 'now')
-      : (spanMs < 10000 ? `-${(back / 1000).toFixed(1)}s` : `-${(back / 1000).toFixed(0)}s`);
+    const ago = behind + back;
+    const lbl = Math.abs(ago) < 1 ? 'now'
+      : `${ago < 0 ? '+' : '-'}${(Math.abs(ago) / 1000).toFixed(spanMs < 10000 ? 1 : 0)}s`;
     ctx.fillText(lbl, x, H - 5);
     ctx.strokeStyle = '#1e2126';
     ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + ih); ctx.stroke();
@@ -1206,8 +1352,7 @@ function drawOverlay(xCss) {
   document.getElementById(id).addEventListener('change', drawGraph));
 document.getElementById('graphWindow').addEventListener('change', () => { zoomMs = 0; viewEndT = 0; drawGraph(); updateGraphStat(); });
 window.addEventListener('resize', drawGraph);
-// wheel zoom centered on the cursor: the time under the cursor stays put,
-// and the frozen view never shows empty space (window clamped into data)
+// Wheel zoom keeps the time under the cursor fixed, including empty margins.
 document.getElementById('graphWrap').addEventListener('wheel', (e) => {
   e.preventDefault();
   const full = hist.length > 1 ? hist[hist.length - 1].t - hist[0].t : 0;
@@ -1223,10 +1368,11 @@ document.getElementById('graphWrap').addEventListener('wheel', (e) => {
     const fx = Math.min(1, Math.max(0, (e.clientX - r.left - P.padL) / P.iw));
     const tc = P.t1 - (1 - fx) * P.spanMs; // time under cursor — stays put
     zoomMs = span2;
-    const lastT = hist[hist.length - 1].t, firstT = hist[0].t;
-    let end2 = tc + (1 - fx) * span2;
-    end2 = Math.min(lastT, Math.max(firstT + Math.min(span2, lastT - firstT), end2));
-    viewEndT = end2 >= lastT ? 0 : end2; // back at the live edge → follow live
+    const lastT = hist[hist.length - 1].t;
+    const end2 = tc + (1 - fx) * span2;
+    // Clamping to retained samples changes tc when history is shorter than
+    // the viewport. Allow empty margins so a paused cursor stays on its time.
+    viewEndT = Math.abs(end2 - lastT) < 1e-6 ? 0 : end2;
   } else {
     zoomMs = span2;
   }
@@ -1311,7 +1457,7 @@ const pdos = [];
 // Gate every decoded PDO before it can touch the table: values outside any
 // legal PD range, or a message whose PDOs aren't plausible + ascending as a
 // set, is framing-slip garbage (cf. the 0.2V/0.4V/3.2V×0A rows) — drop the
-// whole message and say so instead of appending forever.
+// whole message and say so. Valid replies replace the previous snapshot.
 function pdoPlausible(d) {
   if (!(d.v >= 2.5 && d.v <= 60)) return false;
   if (d.a != null && !(d.a >= 0.05 && d.a <= 10)) return false;
@@ -1320,43 +1466,50 @@ function pdoPlausible(d) {
   if (d.w != null && d.a == null && !(d.w > 0 && d.w <= 500)) return false;
   return true;
 }
-function mergePdoDecoded(list, source) {
-  const clean = list.filter(d => d.t !== 'Pad' && d.v > 0);
-  if (!clean.length) return 0;
-  const bad = clean.find(d => !pdoPlausible(d));
-  const fvs = clean.filter(d => d.t === 'Fixed').map(d => d.v);
+function samePdo(a, b) {
+  const fields = d => [d.t, d.v, d.a, d.v0, d.w, ...(d.pps || [])];
+  return JSON.stringify(fields(a)) === JSON.stringify(fields(b));
+}
+function replacePdoDecoded(list, source) {
+  if (!list.length || list.length > 13) return false;
+  const bad = list.find(d => d.t !== 'Pad' && !pdoPlausible(d));
+  const fvs = list.filter(d => d.t === 'Fixed').map(d => d.v);
   const ordered = fvs.every((v, i) => i === 0 || v >= fvs[i - 1] - 1e-9);
-  const firstOk = clean[0].t === 'Fixed' && Math.abs(clean[0].v - 5) < 0.06; // vSafe5V leads every Source_Cap
-  if (bad || !ordered || !firstOk) { log(`ignoring incoherent PDO message (${source})`); return 0; }
-  let added = 0;
-  for (const d of clean) {
-    if (pdos.length >= 10) { log('PDO table full (10) — Get contract for a clean read'); break; }
-    if (!pdos.some(p => p.t === d.t && p.v === d.v && p.a === d.a)) { pdos.push(d); added++; }
-  }
-  return added;
+  const firstOk = list[0].t === 'Fixed' && Math.abs(list[0].v - 5) < 0.06;
+  if (bad || !ordered || !firstOk) { log(`ignoring incoherent PDO message (${source})`); return false; }
+  if (pdos.length === list.length && list.every((d, i) => samePdo(d, pdos[i]))) return false;
+  // Object positions are protocol identifiers. Preserve duplicate PDOs and
+  // padding slots; union/deduplication would change what an RDO number means.
+  pdos.splice(0, pdos.length, ...list);
+  wirePdo = 0; wireWhen = 0; mismatchSince = 0;
+  return true;
 }
 // ---- Binary PDO fallback: `pdo:4,<16 raw bytes>` when the text renderer chokes (PPS bricks) ----
 let serRaw = new Uint8Array(0);
+let serText = '', serialPdos = [], serialPdoCount = 0;
+function resetSerialPd() {
+  serRaw = new Uint8Array(0); serText = ''; serialPdos = []; serialPdoCount = 0;
+}
 function feedPdBinary(chunk) {
   const joined = new Uint8Array(serRaw.length + chunk.length);
   joined.set(serRaw); joined.set(chunk, serRaw.length);
-  serRaw = joined.length > 4096 ? joined.slice(-4096) : joined;
-  for (let i = serRaw.length - 1; i >= 4; i--) {
-    if (serRaw[i - 4] === 0x70 && serRaw[i - 3] === 0x64 && serRaw[i - 2] === 0x6F && serRaw[i - 1] === 0x3A) {
-      const n = serRaw[i] - 0x30;
+  serRaw = joined;
+  for (let i = 0; i + 6 <= serRaw.length; i++) {
+    if (serRaw[i] === 0x70 && serRaw[i + 1] === 0x64 && serRaw[i + 2] === 0x6F && serRaw[i + 3] === 0x3A && serRaw[i + 5] === 0x2C) {
+      const n = serRaw[i + 4] - 0x30;
       if (n < 1 || n > 7) continue;
-      const start = i + 2;
-      if (serRaw.length < start + 4 * n) return;
+      const start = i + 6;
+      if (serRaw.length < start + 4 * n) { serRaw = serRaw.slice(i); return; }
       log(`pdo blob (${n}):`, hex(serRaw.buffer.slice(start, start + 4 * n)));
       const dvb = new DataView(serRaw.buffer, serRaw.byteOffset + start, 4 * n);
       const list = [];
       for (let k = 0; k < n; k++) list.push(decodePdo(dvb.getUint32(4 * k, true)));
-      const added = mergePdoDecoded(list, 'serial-binary');
-      if (added) { log(`decoded ${added} PDO(s) from binary`); updatePdInfo(); }
-      serRaw = new Uint8Array(0);
-      return;
+      if (replacePdoDecoded(list, 'serial-binary')) { log(`decoded ${n} PDO(s) from binary`); updatePdInfo(); }
+      serRaw = serRaw.slice(start + 4 * n);
+      i = -1; // consume every complete frame, keeping an incomplete suffix
     }
   }
+  if (serRaw.length > 4096) serRaw = serRaw.slice(-4096);
 }
 function updatePdInfo() {
   const list = document.getElementById('pdList');
@@ -1365,57 +1518,74 @@ function updatePdInfo() {
     updateActive();
     return;
   }
+  const visible = pdos.filter(p => p.t !== 'Pad');
   const watts = (p) => p.a != null ? p.v * p.a : (p.w || 0);
-  const fixed = pdos.filter(p => p.t === 'Fixed');
-  const head = (fixed.length ? fixed : pdos).reduce((a, b) => (watts(a) > watts(b) ? a : b));
-  list.innerHTML = pdos.map((p, i) => pdoRow(i + 1, p)).join('') +
+  const fixed = visible.filter(p => p.t === 'Fixed');
+  const head = (fixed.length ? fixed : visible).reduce((a, b) => (watts(a) > watts(b) ? a : b));
+  list.innerHTML = pdos.map((p, i) => p.t === 'Pad' ? '' : pdoRow(i + 1, p)).join('') +
     `<div><small>headline: <b>${watts(head).toFixed(0)}W</b> max fixed · wire revision/contract via sniffer below</small></div>`;
   updateActive();
 }
 function feedPd(t) {
-  // serial arrives chunked; match Fixed PDOs and PPS/APDO ranges
-  for (const m of t.matchAll(/Fixed:\s*([\d.]+)V\s*([\d.]+)A/g)) {
-    const v = +m[1], a = +m[2];
-    const d = { t: 'Fixed', v, a };
-    if (!pdoPlausible(d)) { log(`ignoring implausible PDO (serial-text): ${v}V ${a}A`); continue; }
-    if (!pdos.some(p => p.t === 'Fixed' && p.v === v && p.a === a)) pdos.push(d);
+  serText += t;
+  // Match only complete tokens (through the unit A). Retain their unfinished
+  // suffix across reads, and walk Fixed/PPS tokens in their original order.
+  const tokens = /pdo:\s*([1-7]),|Fixed:\s*([\d.]+)V\s*([\d.]+)A|PPS:\s*([\d.]+)\s*-\s*([\d.]+)V\s*([\d.]+)A/g;
+  let consumed = 0, changed = false;
+  for (const m of serText.matchAll(tokens)) {
+    consumed = m.index + m[0].length;
+    if (m[1]) { serialPdos = []; serialPdoCount = +m[1]; continue; }
+    const d = m[2] != null ? { t: 'Fixed', v: +m[2], a: +m[3] }
+      : { t: 'PPS', v: +m[5], a: +m[6], pps: [+m[4], +m[5]] };
+    const first = d.t === 'Fixed' && Math.abs(d.v - 5) < 0.06;
+    if (first && (!serialPdoCount || serialPdos.length >= serialPdoCount)) {
+      serialPdos = []; serialPdoCount = 0;
+    }
+    if (serialPdos.length >= 13) continue;
+    serialPdos.push(d);
+    if (!serialPdoCount || serialPdos.length === serialPdoCount)
+      changed = replacePdoDecoded(serialPdos.slice(), 'serial-text') || changed;
   }
-  for (const m of t.matchAll(/PPS:\s*([\d.]+)\s*-\s*([\d.]+)V\s*([\d.]+)A/g)) {
-    const v0 = +m[1], v1 = +m[2], a = +m[3];
-    const d = { t: 'PPS', v: v1, a, pps: [v0, v1] };
-    if (!pdoPlausible(d)) { log(`ignoring implausible PDO (serial-text): PPS ${v0}-${v1}V ${a}A`); continue; }
-    if (!pdos.some(p => p.t === 'PPS' && p.v === v1)) pdos.push(d);
-  }
-  if (pdos.length) updatePdInfo();
+  serText = serText.slice(consumed).slice(-4096);
+  if (changed) updatePdInfo();
 }
 document.getElementById('pdCsv').onclick = () => {
   if (!pdos.length) return log('nothing to export — read the contract first');
   const rows = ['idx,type,voltage_V,current_A,power_W,min_voltage_V,pdp_W'];
   pdos.forEach((p, i) => {
+    if (p.t === 'Pad') return;
     const w = p.a != null ? p.v * p.a : (p.w || 0);
     const lo = p.pps ? p.pps[0].toFixed(2) : (p.v0 != null ? p.v0.toFixed(2) : '');
     rows.push(`${i + 1},${p.t},${(p.v || 0).toFixed(3)},${p.a != null ? p.a.toFixed(3) : ''},${w.toFixed(2)},${lo},${p.w != null && p.a == null ? p.w.toFixed(1) : ''}`);
   });
   downloadCsv(`km003c-web-pdos-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`, rows.join('\n') + '\n');
-  log(`exported ${pdos.length} PDOs to CSV`);
+  log(`exported ${pdos.filter(p => p.t !== 'Pad').length} PDOs to CSV`);
 };
 
 document.getElementById('pdClear').onclick = () => {
   pdos.length = 0; wirePdo = 0;
+  resetSerialPd();
   updatePdInfo();
   log('PDO table cleared — reread via Get contract or Watch wire');
 };
 
 // ---- WebSerial ----
 let port = null, reader = null, serAlive = false;
-async function serWrite(s, ms = 5000) {
-  const w = port.writable.getWriter();
-  try {
-    await Promise.race([
-      w.write(new TextEncoder().encode(s + '\n')),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('serial write timed out')), ms)),
-    ]);
-  } finally { try { w.releaseLock(); } catch (e) {} }
+let serChain = Promise.resolve();
+function serWrite(s, ms = 5000, connection = port) {
+  const write = serChain.then(async () => {
+    if (!connection || port !== connection || !connection.writable) throw new Error('serial connection closed — reconnect');
+    const w = connection.writable.getWriter();
+    let timer;
+    try {
+      await Promise.race([
+        w.write(new TextEncoder().encode(s + '\n')),
+        new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('serial write timed out')), ms); }),
+      ]);
+    } finally { clearTimeout(timer); try { w.releaseLock(); } catch (e) {} }
+  });
+  serChain = write.catch(() => {});
+  return write;
 }
 // hang-proof teardown: every step is timeout-guarded, so a wedged dongle
 // can delay this path but never stall the page. Detaches globals first so
@@ -1424,6 +1594,7 @@ async function dropSerial(statMsg) {
   serAlive = false;
   const p = port, r = reader;
   port = null; reader = null;
+  resetSerialPd();
   if (r) {
     try { await Promise.race([r.cancel(), new Promise(res => setTimeout(res, 1500))]); } catch (e) {}
     await new Promise(res => setTimeout(res, 100)); // let the loop's finally release
@@ -1436,41 +1607,65 @@ async function dropSerial(statMsg) {
   if (statMsg != null) document.getElementById('serStat').textContent = statMsg;
 }
 document.getElementById('serConnect').onclick = async () => {
-  port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x5FC9 }] });
-  await port.open({ baudRate: 115200 }); // ignored by firmware
+  const connection = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x5FC9 }] });
+  await connection.open({ baudRate: 115200 }); // ignored by firmware
+  port = connection;
   log('serial open');
+  resetSerialPd();
   pdos.length = 0; wirePdo = 0; updatePdInfo();
   serAlive = true;
+  const decoder = new TextDecoder();
   (async () => {
-    while (serAlive && port && port.readable) {
-      reader = port.readable.getReader();
-      try { for (;;) { const { value, done } = await reader.read(); if (done) break; if (value) { const t = new TextDecoder().decode(value); log('<', t); feedPd(t); feedPdBinary(value); } } }
-      catch (e) { break; } finally { reader.releaseLock(); }
+    while (serAlive && port === connection && connection.readable) {
+      const activeReader = connection.readable.getReader();
+      reader = activeReader;
+      try { for (;;) {
+        const { value, done } = await activeReader.read();
+        if (done || !serAlive || port !== connection) break;
+        if (value) { const t = decoder.decode(value, { stream: true }); log('<', t); feedPd(t); feedPdBinary(value); }
+      } }
+      catch (e) { break; } finally {
+        activeReader.releaseLock();
+        if (reader === activeReader) reader = null;
+      }
     }
   })();
 };
 let serBusy = false;
 document.getElementById('serPdm').onclick = async () => {
   if (serBusy) return;
+  const st = document.getElementById('serStat'), connection = port;
+  if (!connection || !connection.writable) { st.textContent = 'connect serial first'; return; }
+  const auto = document.getElementById('serPdmAuto').checked;
   serBusy = true;
   document.getElementById('serPdm').disabled = true;
-  pdos.length = 0; wirePdo = 0; serRaw = new Uint8Array(0); updatePdInfo();
-  const st = document.getElementById('serStat');
+  pdos.length = 0; wirePdo = 0; resetSerialPd(); updatePdInfo();
   st.textContent = 'reading contract… (charging will blip)';
+  let readError = null, closeError = null, closed = false;
   try {
-    for (const c of ['pdm open', 'entry pd', 'pd pdo']) { log('>', c); await serWrite(c); await new Promise(r => setTimeout(r, 900)); }
-    // an open PDM session keeps owning the PD engine (charger parks at 5V,
-    // downstream negotiation flaps) — release it unless asked to stay.
-    const auto = document.getElementById('serPdmAuto').checked;
-    if (auto) {
-      log('> pdm close (auto-exit)'); await serWrite('pdm close');
-      await new Promise(r => setTimeout(r, 600));
+    for (const c of ['pdm open', 'entry pd', 'pd pdo']) {
+      log('>', c); await serWrite(c, 5000, connection); await new Promise(r => setTimeout(r, 900));
     }
-    st.textContent = (pdos.length ? `done · ${pdos.length} PDOs` : 'done · no PDOs parsed (see log)') +
-      (auto ? ' · pdm closed' : ' · PDM still open — Exit PDM when done');
-  } finally { serBusy = false; document.getElementById('serPdm').disabled = false; }
+  } catch (e) { readError = e; log('contract read failed: ' + (e.message || e)); }
+  finally {
+    // Even a failed open write may have reached the dongle. Try to release
+    // that same session on every failed query; retain PDM only on success.
+    if (auto || readError) {
+      try {
+        log('> pdm close (query cleanup)'); await serWrite('pdm close', 5000, connection);
+        closed = true;
+        await new Promise(r => setTimeout(r, 600));
+      } catch (e) { closeError = e; log('PDM cleanup failed: ' + (e.message || e)); }
+    }
+    const result = readError ? 'read failed: ' + (readError.message || readError)
+      : pdos.length ? `done · ${pdos.filter(p => p.t !== 'Pad').length} PDOs` : 'done · no PDOs parsed (see log)';
+    st.textContent = result + (closeError ? ' · PDM may still be open — Exit PDM or reconnect'
+      : closed ? ' · pdm closed' : ' · PDM still open — Exit PDM when done');
+    serBusy = false; document.getElementById('serPdm').disabled = false;
+  }
 };
 document.getElementById('serSend').onclick = async () => {
+  if (serBusy) return log('contract query in progress');
   const box = document.getElementById('serCmd');
   const c = box.value.trim();
   if (!c) return;
@@ -1483,9 +1678,12 @@ document.getElementById('serCmd').addEventListener('keydown', (e) => {
 });
 document.getElementById('serHelp').onclick = () => {
   const box = document.getElementById('serHelpBox');
-  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  const show = box.style.display === 'none';
+  box.style.display = show ? 'block' : 'none';
+  document.getElementById('serHelp').setAttribute('aria-expanded', String(show));
 };
 document.getElementById('serExit').onclick = async () => {
+  if (serBusy) return log('contract query in progress — wait for the query before exiting PDM');
   log('>', 'pdm close'); await serWrite('pdm close');
   await new Promise(r => setTimeout(r, 600));
   document.getElementById('serStat').textContent = 'pdm closed · engine released — re-plug charger + device to renegotiate';
@@ -1554,8 +1752,8 @@ document.getElementById('pdSniff').onclick = async () => {
 // Ground truth = the Request/RDO on the wire (PDO# = bits28-30, 1-based).
 // The 12B PD status preamble carries no contract info, and an established
 // idle contract returns status only — so Watch latches events as they flow
-// (plug in / renegotiate while watching). Seen Source_Cap PDOs are merged
-// into the table, so a watched plug-in can fill it with zero PDM use.
+// (plug in / renegotiate while watching). Each Source_Cap replaces the table
+// in wire order, so a watched plug-in can fill it with zero PDM use.
 let pdMon = false, pdQuiet = false, pdmHeld = false; // PD monitor on / auto-pd hush / PDM holding engine
 let lastPd = 0, pdSoon = false, autoPdOn = false, lastVbusSeen = null, mismatchSince = 0;
 async function autoPdKick() {
@@ -1587,8 +1785,8 @@ async function pdMonitorEnsure() {
   }
 }
 async function pdPollOnce() {
-  // One passive PD_PACKET read: merges Source_Caps, latches Request→PDO#.
-  // Logs only on change (new PDO# or new table rows), so the 2s auto poll stays silent.
+  // One passive PD_PACKET read: replaces Source_Caps, latches Request→PDO#.
+  // Logs only on change, so repeated snapshots stay silent.
   return usbExcl(async () => {
     const tid = (pdTid++) & 0xFF;
     await usb.transferOut(1, new Uint8Array([0x0C, tid, 0x20, 0x00]).buffer);
@@ -1611,13 +1809,18 @@ async function pdPollOnce() {
     // so clear before merging this poll's words/Request below. Watch-only:
     // outside Watch wire a manual Get-contract table must survive.
     if (watching && c.events.includes(0x22)) clearContract('PD detach event on wire — PDO table + latched contract cleared');
-    let added = 0;
-    for (const msg of c.msgs) added += mergePdoDecoded(msg.map(decodePdo), 'wire');
-    let changed = added > 0;
-    if (c.reqPdo && c.reqPdo !== wirePdo) { wirePdo = c.reqPdo; wireWhen = Date.now(); changed = true; }
+    let changed = false, tableChanged = false;
+    for (const record of c.records) {
+      if (record.msg) tableChanged = replacePdoDecoded(record.msg.map(decodePdo), 'wire') || tableChanged;
+      else if (record.reqPdo) {
+        changed = record.reqPdo !== wirePdo || changed;
+        wirePdo = record.reqPdo; wireWhen = Date.now();
+      }
+    }
+    changed = tableChanged || changed;
     if (changed) {
       updatePdInfo();
-      log(`pd: Request PDO${c.reqPdo || '?'}${added ? ` + ${added} PDO table row(s)` : ''}${c.rev >= 0 ? ` · PD ${PD_REV[c.rev]}` : ''}`);
+      log(`pd: Request PDO${wirePdo || '?'}${tableChanged ? ' · PDO table updated' : ''}${c.rev >= 0 ? ` · PD ${PD_REV[c.rev]}` : ''}`);
     }
     return c;
   });
@@ -1632,7 +1835,7 @@ function sniffContract(buf) {
   // focused walk of att=0x010 payloads: Request RDO + Source_Cap PDO words
   const dv = new DataView(buf);
   let off = 4;
-  const out = { reqPdo: 0, rev: -1, msgs: [], events: [] };
+  const out = { reqPdo: 0, rev: -1, msgs: [], events: [], records: [] };
   while (off + 4 <= buf.byteLength) {
     const w = dv.getUint32(off, true);
     const att = w & 0x7FFF, nxt = (w >> 15) & 1, chunk = (w >> 16) & 0x3F, size = w >>> 22;
@@ -1655,12 +1858,13 @@ function sniffContract(buf) {
           const msg = [];
           for (let i = 0; i < nobj; i++) {
             const wo = (wire[2 + 4 * i] | (wire[3 + 4 * i] << 8) | (wire[4 + 4 * i] << 16) | (wire[5 + 4 * i] << 24)) >>> 0;
-            if (wo) msg.push(wo);
+            msg.push(wo);
           }
-          if (msg.length) out.msgs.push(msg);
+          if (msg.length) { out.msgs.push(msg); out.records.push({ msg }); }
         } else if (mtype === 2 && wire.length >= 6) {
           const rdo = wire[2] | (wire[3] << 8) | (wire[4] << 16) | (wire[5] << 24);
           out.reqPdo = (rdo >>> 28) & 7;
+          out.records.push({ reqPdo: out.reqPdo });
         }
       }
       if (!nxt) break;
@@ -1672,6 +1876,7 @@ function sniffContract(buf) {
 }
 function pdoShort(d) {
   if (!d) return '(not in table)';
+  if (d.t === 'Pad') return '(padding slot)';
   if (d.t === 'PPS' || d.t === 'AVS') return `${d.t} ${d.pps[0].toFixed(1)}–${d.pps[1].toFixed(1)}V`;
   if (d.t === 'Battery') return `Batt ${d.v0.toFixed(1)}–${d.v.toFixed(1)}V`;
   if (d.t === 'Variable') return `Var ${d.v0.toFixed(1)}–${d.v.toFixed(1)}V`;
@@ -1763,7 +1968,7 @@ document.getElementById('pdWatch').onclick = async () => {
   log('watching PD wire 60s — plug in / renegotiate now (passive, charging undisturbed)');
   const end = Date.now() + 60000;
   while (watching && Date.now() < end) {
-    try { await pdPollOnce(); }
+    try { if (!liveStarting) await pdPollOnce(); } // leave the endpoint to stream initialization
     catch (e) { log('watch poll err: ' + (e.message || e)); break; }
     if (watching) st.textContent = `${Math.max(0, Math.ceil((end - Date.now()) / 1000))}s left…`;
     await new Promise(r => setTimeout(r, 500));
@@ -1778,8 +1983,7 @@ document.getElementById('pdWatch').onclick = async () => {
 document.getElementById('rstUsb').onclick = async () => {
   const st = document.getElementById('rstStat');
   try {
-    stopLive();
-    if (usb) { try { await usb.close(); } catch (e) {} usb = null; pdMon = false; }
+    await closeUsb();
     st.textContent = 'link closed — re-attaching…';
     await ensureUsb(); // silent when permission persists, chooser only if needed
     st.textContent = 'link reset · press Start live to poll';
@@ -1791,14 +1995,9 @@ document.getElementById('rstSes').onclick = async () => {
   try {
     if (!usb || !usb.opened) await ensureUsb();
     stopLive();
-    const ses = async (name, type) => {
-      const t = (pdTid++) & 0xFF;
-      await usb.transferOut(1, new Uint8Array([type, t, 0x00, 0x00]).buffer);
-      const r = await usb.transferIn(1, 64);
-      const b = new Uint8Array(sliceBuf(r.data));
-      const tp = b.length ? b[0] & 0x7F : -1;
-      log(`session: ${name} -> ${tp === 5 ? 'ACCEPT' : tp === 6 ? 'REJECT' : 'type 0x' + tp.toString(16)} (id ${t})`);
-    };
+    await liveStartChain.catch(() => {});
+    await liveIdle();
+    const ses = (name, type) => bulkCmd(name, [type, 0, 0, 0]);
     await ses('STOP_GRAPH', 0x0F);
     await ses('RESET', 0x04);
     await ses('CONNECT', 0x02);

@@ -51,9 +51,12 @@ cancel pending transfers. Press START to re-attach.
 ## Protocol regression checks
 
 Run `node tests/stream.test.js` to check model-specific authentication, fragmented
-and empty USB transfers, request spacing, timeout recovery, and stream teardown.
+and empty USB transfers, request spacing, timeout recovery, mode switching,
+startup cancellation, session reset ordering, and stream teardown.
 Run `node tests/graph.test.js` to check mixed sample densities, peak preservation,
-bounded drawing work, and stable graph axes.
+bounded drawing work, stable graph axes, and cursor-centered zoom.
+Run `node tests/data.test.js` to check PDM cleanup, fragmented serial replies,
+PDO snapshot numbering, and stream timestamps across gaps and counter wrap.
 
 ## Credits
 
