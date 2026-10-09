@@ -5,7 +5,7 @@ const appSource = typeof require === 'function'
 const appScript = appSource.match(/<script>([\s\S]*?)<\/script>/)[1];
 new Function(appScript);
 const graphSource = appScript.slice(appScript.indexOf('const GCOL ='), appScript.indexOf('function clearOverlay()'));
-const zoomSource = appScript.slice(appScript.indexOf("document.getElementById('graphWrap').addEventListener('wheel'"), appScript.indexOf('// hover crosshair with exact'));
+const zoomSource = appScript.slice(appScript.indexOf('function panGraph('), appScript.indexOf('// hover crosshair with exact'));
 function assert(condition, message) { if (!condition) throw new Error(message); }
 function equal(actual, expected, message) {
   assert(JSON.stringify(actual) === JSON.stringify(expected), `${message}: ${JSON.stringify(actual)} != ${JSON.stringify(expected)}`);
@@ -36,12 +36,13 @@ function harness() {
     return {
       drawTrace, drawGraph, plot: () => lastPlot,
       setHistory: points => { hist.splice(0, hist.length, ...points); },
+      historySize: () => hist.length,
       setCapture: mode => { streamOn = mode === 'stream'; liveTimer = mode === 'poll' ? 1 : null; },
-      wheel: (x, deltaY) => nodes.graphWrap.wheel(x, deltaY),
+      wheel: (x, deltaY, options) => nodes.graphWrap.wheel(x, deltaY, options),
       timeAt: x => lastPlot.t1 - (1 - (x - lastPlot.padL) / lastPlot.iw) * lastPlot.spanMs
     };
   `)(nodes);
-  nodes.graphWrap.wheel = (clientX, deltaY) => handlers.wheel({ clientX, deltaY, preventDefault() {} });
+  nodes.graphWrap.wheel = (clientX, deltaY, options = {}) => handlers.wheel({ clientX, deltaY, preventDefault() {}, ...options });
   return { api, ctx, nodes };
 }
 function runTests() {
@@ -155,6 +156,58 @@ function runTests() {
     points.push({ t: 115000, vbus: 5 }); api.setHistory(points); api.drawGraph();
     equal(api.plot().t1, 115000, 'All follows later samples');
     equal(api.plot().spanMs, 15000, 'All expands with new history');
+  });
+  test('two-finger horizontal scrolling pans both ways without changing zoom', () => {
+    const { api } = harness();
+    api.setHistory(Array.from({ length: 601 }, (_, i) => ({ t: 100000 + i * 100, vbus: 5 })));
+    api.drawGraph();
+    const plot = api.plot(), x = plot.padL + plot.iw / 2;
+    api.wheel(x, -100);
+    const zoomed = api.plot(), offset = 120 * zoomed.spanMs / zoomed.iw;
+    api.wheel(x, 2, { deltaX: -120 });
+    assert(Math.abs(api.plot().t1 - (zoomed.t1 - offset)) < 1e-6, 'Horizontal scroll moves to earlier time despite minor vertical noise');
+    equal(api.plot().spanMs, zoomed.spanMs, 'Panning preserves zoom');
+    api.wheel(x, -2, { deltaX: 120 });
+    assert(Math.abs(api.plot().t1 - zoomed.t1) < 1e-6, 'Opposite scroll returns to the original time');
+    equal(api.plot().spanMs, zoomed.spanMs, 'Opposite scroll preserves zoom');
+  });
+  test('horizontal scrolling stays within history and resumes following at the live edge', () => {
+    const { api } = harness(), points = Array.from({ length: 601 }, (_, i) => ({ t: 100000 + i * 100, vbus: 5 }));
+    api.setCapture('stream'); api.setHistory(points); api.drawGraph();
+    const plot = api.plot(), x = plot.padL + plot.iw / 2;
+    api.wheel(x, -100);
+    const span = api.plot().spanMs;
+    api.wheel(x, 0, { deltaX: -100000 });
+    equal(api.plot().t1, 100000 + span, 'Oldest full window is the left boundary');
+    points.push({ t: 161000, vbus: 5 }); api.setHistory(points); api.drawGraph();
+    equal(api.plot().t1, 100000 + span, 'Inspecting history stays frozen during capture');
+    api.wheel(x, 0, { deltaX: 100000 });
+    equal(api.plot().t1, 161000, 'Right boundary is the latest sample');
+    points.push({ t: 162000, vbus: 5 }); api.setHistory(points); api.drawGraph();
+    equal(api.plot().t1, 162000, 'Returning to the live edge follows new samples');
+    equal(api.plot().spanMs, span, 'Following retains the zoom level');
+    equal(api.historySize(), 603, 'Panning retains every history point');
+  });
+  test('horizontal and empty scrolls do not accidentally zoom an unzoomed graph', () => {
+    const { api } = harness();
+    api.setCapture('stream'); api.setHistory([{ t: 100000, vbus: 5 }, { t: 160000, vbus: 5 }]); api.drawGraph();
+    const plot = api.plot(), x = plot.padL + plot.iw / 2;
+    api.wheel(x, 0, { deltaX: -100 }); api.wheel(x, 0);
+    equal(api.plot().spanMs, 30000, 'No accidental zoom from horizontal or empty events');
+    api.setHistory([{ t: 100000, vbus: 5 }, { t: 161000, vbus: 5 }]); api.drawGraph();
+    equal(api.plot().t1, 161000, 'Unzoomed graph still follows capture');
+  });
+  test('horizontal scroll units are converted without an initial jump from zoom margins', () => {
+    const { api } = harness();
+    api.setHistory([{ t: 100000, vbus: 5 }, { t: 114000, vbus: 5 }]); api.drawGraph();
+    const plot = api.plot(), x = plot.padL + plot.iw * 0.05;
+    api.wheel(x, -100);
+    const zoomed = api.plot();
+    api.wheel(x, 0, { deltaX: 1, deltaMode: 1 });
+    assert(Math.abs(api.plot().t1 - (zoomed.t1 + 16 * zoomed.spanMs / zoomed.iw)) < 1e-6, 'Line scroll moves smoothly from an existing empty margin');
+    api.wheel(x, 0, { deltaX: 1, deltaMode: 2 });
+    equal(api.plot().t1, 114000, 'Page scroll is bounded at the live edge');
+    equal(api.plot().spanMs, zoomed.spanMs, 'Scroll units never alter zoom');
   });
   return passed;
 }

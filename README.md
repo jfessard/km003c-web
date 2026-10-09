@@ -23,7 +23,7 @@ docs/screenshot.png   Live view screenshot (shown above)
 Live: https://jfessard.github.io/km003c-web/ — or open `index.html` directly (`file://`).
 
 - **Live meters** — VBUS/IBUS/PWR tiles with current direction, up to 10×/s, or 1000SPS in proprietary mode.
-- **Live graph** — V/A/W plus optional CC lines, hover values, zoom, CSV export, 1000 SPS streaming mode.
+- **Live graph** — V/A/W plus optional CC lines, hover values, zoom, horizontal trackpad scrolling while zoomed, CSV export, 1000 SPS streaming mode.
 - **Active PDO contract** — show PDOs without disturbing charging (wire snoop at charger plug-in + VBUS matching).
 - **Charge PDO contract** — read charger PDO table over serial (manual query, and restores the PDO)
 
@@ -55,7 +55,7 @@ and empty USB transfers, request spacing, timeout recovery, mode switching,
 startup cancellation, session reset ordering, and stream teardown.
 Run `node tests/graph.test.js` to check mixed sample densities, peak preservation,
 bounded drawing work, stable graph axes, cursor-centered zoom, and resuming live
-scrolling when zooming fully out.
+scrolling when zooming fully out or panning back to the live edge.
 Run `node tests/data.test.js` to check PDM cleanup, fragmented serial replies,
 PDO snapshot numbering, and stream timestamps across gaps and counter wrap.
 

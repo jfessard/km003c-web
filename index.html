@@ -144,7 +144,7 @@ details.card summary{color:#cfd3d8}
 </div>
 <div id="graphWrap">
 <canvas id="graph" width="900" height="220"></canvas>
-<canvas id="graphTip" width="900" height="220" title="scroll to zoom · hover for values · double-click resets"></canvas>
+<canvas id="graphTip" width="900" height="220" title="scroll to zoom · two-finger horizontal scroll pans while zoomed · hover for values · double-click resets"></canvas>
 <div id="graphTipBox"></div>
 <div id="graphGrip" title="drag to resize · double-click resets"></div>
 </div>
@@ -162,7 +162,7 @@ details.card summary{color:#cfd3d8}
 <button id="graphClear">Clear</button>
 <button id="csvExport">Export CSV</button>
 <span id="graphStat"><small></small></span>
-<span><small style="color:var(--mut)">scroll zooms · hover values · dbl-click resets</small></span>
+<span><small style="color:var(--mut)">scroll zooms · horizontal scroll pans when zoomed · dbl-click resets</small></span>
 </div>
 </section>
 
@@ -1352,9 +1352,28 @@ function drawOverlay(xCss) {
   document.getElementById(id).addEventListener('change', drawGraph));
 document.getElementById('graphWindow').addEventListener('change', () => { zoomMs = 0; viewEndT = 0; drawGraph(); updateGraphStat(); });
 window.addEventListener('resize', drawGraph);
+function panGraph(pixels) {
+  const P = lastPlot;
+  if (!zoomMs || !P || hist.length < 2 || !pixels) return;
+  const lastT = hist[hist.length - 1].t, firstT = hist[0].t;
+  // Stay within retained history, while allowing margins created by cursor
+  // zoom to move back into range without an initial jump.
+  const minEnd = Math.min(P.t1, firstT + Math.min(P.spanMs, lastT - firstT));
+  const maxEnd = Math.max(P.t1, lastT);
+  const end = Math.min(maxEnd, Math.max(minEnd, P.t1 + pixels * P.spanMs / P.iw));
+  viewEndT = Math.abs(end - lastT) < 1e-6 ? 0 : end;
+  drawGraph(); updateGraphStat();
+}
 // Wheel zoom keeps the time under the cursor fixed, including empty margins.
 document.getElementById('graphWrap').addEventListener('wheel', (e) => {
   e.preventDefault();
+  // A horizontal trackpad swipe (or Shift + wheel) pans, preserving zoom.
+  if (e.shiftKey || Math.abs(e.deltaX || 0) > Math.abs(e.deltaY)) {
+    const pixels = e.shiftKey ? (e.deltaX || e.deltaY) : e.deltaX;
+    panGraph(pixels * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? (lastPlot?.iw || 900) : 1));
+    return;
+  }
+  if (!e.deltaY) return;
   const full = hist.length > 1 ? hist[hist.length - 1].t - hist[0].t : 0;
   const cur = effSpanMs() || full || 30000;
   // zoom lives inside the window select: never past it (long history), and
