@@ -136,12 +136,23 @@ Notes:
   impossible PDOs like 0.2V/3.2V×0A — page hex-dumps + validates, drops
   incoherent messages). Console prints `cc disconnect` / `cc1 attach`
   presence events, seen in PDM `entry pd` mode (unknown in normal mode).
-* Back-to-back `STREAM_AUTH` attempts get empty (0B) replies — the firmware
-  throttles; space retries ~1s and retry short replies, treating a parsed
-  level-0 as the real answer.
-* KM002C `STREAM_AUTH` replies omit KM003C's bit0 result flag: refused =
-  `4C 00 02 02`, granted = `4C 00 04 02` (level = bit1). HWID alone was
-  refused; the `0x3000C00` calibration credential grants level 1.
+* Space `STREAM_AUTH` requests at least 1s apart. Collect all 36B of the
+  response, including its encrypted echo, across transfers. Continue reading
+  past zero-length packets without resending the command; a parsed level 0
+  is a real refusal. MEM_READ similarly collects exactly 20B confirmation
+  plus the requested ciphertext rounded to 16B.
+* `STREAM_AUTH` response bytes 2-3 are a **special raw word**. KM003C:
+  `4C 00 01 02` refuses; `4C 00 03 02` grants level 1. Decode result bit 0
+  and level bits 1-2 directly from the raw word, without the normal control
+  attribute shift. The reported KM003C/macOS HWID reply was already a grant;
+  applying the KM002C shift incorrectly read it as level 0.
+* KM002C omits the result flag and shifts the level field: refused =
+  `4C 00 02 02`, granted = `4C 00 04 02` (raw level bits 2-3). HWID alone
+  was refused; the `0x3000C00` calibration credential grants level 1.
+* `clearHalt` does not cancel a hung WebUSB read on macOS. On timeout,
+  close the handle and finish closing before re-attaching. Timeouts start
+  when a queued USB job actually runs. Await STOP_GRAPH/DISCONNECT teardown
+  before a new stream or single-shot loop begins.
 
 ## USB PD R3.2 PDO layouts (cf. `usbpd` crate `source_capabilities.rs`)
 
@@ -171,6 +182,6 @@ PPS 3.3-5.9V/3A, PPS 3.3-11V/2A]` (PD3.0 18W brick).
   Verified live on KM002C: auth level 1 via `0x3000C00` calibration
   credential, ~1020 eff SPS, 0 dropped; session hygiene (verified teardown,
   clearHalt, DISCONNECT-before-CONNECT) was required to get there.
+  KM003C stream startup also confirmed live on macOS after fixing the raw
+  authentication result decoding; its HWID credential grants level 1 directly.
 * att=0x020 PdTrace layout still unknown (never captured).
-
-

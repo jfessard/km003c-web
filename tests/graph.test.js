@@ -1,0 +1,107 @@
+// Run with: node tests/graph.test.js. APP_SOURCE supports an embedded JS runtime.
+const appSource = typeof require === 'function'
+  ? require('node:fs').readFileSync(require('node:path').join(__dirname, '../index.html'), 'utf8')
+  : APP_SOURCE;
+const appScript = appSource.match(/<script>([\s\S]*?)<\/script>/)[1];
+new Function(appScript);
+const graphSource = appScript.slice(appScript.indexOf('const GCOL ='), appScript.indexOf('function clearOverlay()'));
+function assert(condition, message) { if (!condition) throw new Error(message); }
+function equal(actual, expected, message) {
+  assert(JSON.stringify(actual) === JSON.stringify(expected), `${message}: ${JSON.stringify(actual)} != ${JSON.stringify(expected)}`);
+}
+function canvas() {
+  return {
+    paths: [], commands: [],
+    beginPath() { this.commands = []; },
+    moveTo(x, y) { this.commands.push(['M', x, y]); },
+    lineTo(x, y) { this.commands.push(['L', x, y]); },
+    stroke() { this.paths.push(this.commands.slice()); },
+    setTransform() {}, clearRect() {}, fillRect() {}, fillText() {},
+  };
+}
+function harness() {
+  const ctx = canvas(), nodes = {};
+  for (const id of ['gV', 'gI', 'gP', 'gCC1', 'gCC2', 'gDP', 'gDM', 'gZero']) nodes[id] = { checked: id === 'gV' || id === 'gZero' };
+  nodes.graphWindow = { value: '30' }; nodes.graphLegend = {};
+  nodes.graph = { clientWidth: 1000, clientHeight: 220, getContext: () => ctx };
+  const api = new Function('nodes', `
+    const hist = [], window = { devicePixelRatio: 1 }, performance = { now: () => 0 };
+    const document = { getElementById: id => nodes[id] };
+    function clearOverlay() {} function drawOverlay() {}
+    ${graphSource}
+    return {
+      drawTrace, drawGraph, plot: () => lastPlot,
+      setHistory: points => { hist.splice(0, hist.length, ...points); }
+    };
+  `)(nodes);
+  return { api, ctx, nodes };
+}
+function runTests() {
+  const passed = [];
+  function test(name, fn) { fn(); passed.push(name); }
+  test('sparse readings retain their exact polyline', () => {
+    const { api, ctx } = harness(), data = [{ t: 0, v: 5 }, { t: 50, v: 4 }, { t: 100, v: 5 }];
+    api.drawTrace(ctx, data, 'v', t => t / 10, v => v, 0, 10);
+    equal(ctx.paths[0], [['M', 0, 5], ['L', 5, 4], ['L', 10, 5]], 'Sparse path');
+  });
+  test('adding 1000 SPS data keeps older sparse history connected', () => {
+    const { api, ctx } = harness();
+    const sparse = Array.from({ length: 25 }, (_, i) => ({ t: i * 1000, v: 5 }));
+    const dense = Array.from({ length: 8000 }, (_, i) => ({ t: 25000 + i, v: 4 + i % 2 }));
+    const data = sparse.concat(dense), before = JSON.stringify(data), X = t => t / 33;
+    api.drawTrace(ctx, data, 'v', X, v => v, 0, 1000);
+    equal(ctx.paths[0].slice(0, 25), sparse.map((p, i) => [i ? 'L' : 'M', X(p.t), p.v]), 'Sparse prefix still connected');
+    equal(JSON.stringify(data), before, 'All raw samples preserved');
+    assert(ctx.paths[0].filter(c => c[0] === 'M').length === 1, 'Connected trace has one starting point');
+  });
+  test('dense columns preserve an interior spike and dip', () => {
+    const { api, ctx } = harness();
+    const data = Array.from({ length: 1000 }, (_, i) => ({ t: i, v: 5 }));
+    data[455].v = 20; data[456].v = 1;
+    api.drawTrace(ctx, data, 'v', t => t / 100, v => v, 0, 10);
+    const envelope = ctx.paths[1];
+    assert(envelope.some((p, i) => p[0] === 'M' && p[1] === 4.5 && p[2] === 20 &&
+      envelope[i + 1][0] === 'L' && envelope[i + 1][2] === 1), 'Both extrema in the same pixel are visible');
+  });
+  test('a flat dense signal draws a continuous line', () => {
+    const { api, ctx } = harness(), data = Array.from({ length: 1000 }, (_, i) => ({ t: i, v: 5 }));
+    api.drawTrace(ctx, data, 'v', t => t / 100, v => v, 0, 10);
+    assert(ctx.paths[0].length > 1, 'Flat data draws a line');
+    assert(ctx.paths[0].every(p => p[2] === 5), 'Flat line stays flat');
+    equal(ctx.paths[1], [], 'No zero-height envelope strokes needed');
+  });
+  test('rendering 60000 samples uses at most four drawing commands per column', () => {
+    const { api, ctx } = harness(), cols = 800;
+    const data = Array.from({ length: 60000 }, (_, i) => ({ t: i, v: 4 + i % 7 / 10 }));
+    api.drawTrace(ctx, data, 'v', t => t * cols / 60000, v => v, 0, cols);
+    assert(ctx.paths.flat().length <= 4 * cols, 'Drawing complexity scales with canvas width');
+  });
+  test('scrolling through the density threshold keeps both ends of the trace', () => {
+    for (const count of [600, 601]) {
+      const { api, ctx } = harness(), data = Array.from({ length: count }, (_, i) => ({ t: i, v: 5 }));
+      api.drawTrace(ctx, data, 'v', t => t * 100 / count, v => v, 0, 100);
+      equal(ctx.paths[0][0], ['M', 0, 5], `First sample at ${count}`);
+      equal(ctx.paths[0].at(-1), ['L', (count - 1) * 100 / count, 5], `Last sample at ${count}`);
+    }
+  });
+  test('axis limits relax gradually across redraws and expand immediately for a peak', () => {
+    const { api } = harness();
+    api.setHistory([{ t: 0, vbus: 10 }]); api.drawGraph();
+    const high = api.plot().lim.vbus[1];
+    api.setHistory([{ t: 1000, vbus: 5 }]); api.drawGraph();
+    const relaxed = api.plot().lim.vbus[1];
+    assert(relaxed < high && relaxed > 6, 'Limits retain the prior scale and relax gradually');
+    api.setHistory([{ t: 2000, vbus: 20 }]); api.drawGraph();
+    assert(api.plot().lim.vbus[1] > 20, 'A new peak expands the axis immediately');
+  });
+  return passed;
+}
+try {
+  const passed = runTests();
+  globalThis.GRAPH_TEST_RESULT = { passed };
+  if (typeof console !== 'undefined') console.log(`${passed.length} checks passed\n${passed.join('\n')}`);
+} catch (error) {
+  globalThis.GRAPH_TEST_RESULT = { error: String(error.stack || error) };
+  if (typeof console !== 'undefined') console.error(error);
+  if (typeof process !== 'undefined') process.exitCode = 1;
+}

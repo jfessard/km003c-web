@@ -242,22 +242,42 @@ let usb = null, claimed = false; // claimed tracks our exclusive IF0 hold (open 
 // wire watch, one-shot debug reads) can never interleave transferOut/In
 // pairs and cross responses on the single bulk endpoint.
 let usbChain = Promise.resolve();
+let usbRecovery = Promise.resolve();
 function usbExcl(fn, ms = 5000) {
-  const run = usbChain.then(fn, fn);
-  usbChain = run.catch(() => {}); // chain always advances, even past a hung transfer
-  if (!ms) return run;
-  let timer = null;
-  const timeout = new Promise((_, rej) => {
-    timer = setTimeout(() => {
-      try { usb?.clearHalt('in', 1)?.catch(() => {}); } catch (e) {} // flush attempt must never block the timeout itself
-      rej(new Error('USB timeout'));
-    }, ms);
+  const device = usb;
+  const run = usbChain.then(async () => {
+    if (!device || !device.opened || usb !== device) throw new Error('USB device closed — press Start to reconnect');
+    if (!ms) return fn();
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        // clearHalt does not cancel a pending WebUSB transfer on macOS.
+        // Closing the handle aborts it; finish closing before another job or re-attach.
+        if (usb === device) { usb = null; claimed = false; pdMon = false; }
+        usbRecovery = Promise.resolve().then(() => device.close()).catch(e => log('USB timeout recovery: ' + (e.message || e)));
+        reject(new Error('USB timeout — link closed; press Start to reconnect'));
+      }, ms);
+    });
+    try { return await Promise.race([Promise.resolve().then(fn), timeout]); }
+    finally { clearTimeout(timer); }
   });
-  // settle either way AND disarm the other side: a fired timer must never clearHalt a later healthy transfer
-  return Promise.race([
-    run.then(v => { clearTimeout(timer); return v; }, e => { clearTimeout(timer); throw e; }),
-    timeout,
-  ]);
+  usbChain = run.catch(() => {}).then(() => usbRecovery);
+  return run;
+}
+async function readBulkBytes(device, length, label) {
+  // Protocol messages may span USB transfers; a zero-length packet is not a reply.
+  const bytes = new Uint8Array(length);
+  let used = 0;
+  for (let reads = 0; used < length && reads < 64; reads++) {
+    const r = await device.transferIn(1, 64);
+    if (r.status !== 'ok' || !r.data) throw new Error(`${label}: USB ${r.status}`);
+    const chunk = new Uint8Array(sliceBuf(r.data));
+    if (!chunk.length) { await new Promise(resolve => setTimeout(resolve, 20)); continue; }
+    if (used + chunk.length > length) throw new Error(`${label}: oversized reply (${used + chunk.length}B, expected ${length}B)`);
+    bytes.set(chunk, used); used += chunk.length;
+  }
+  if (used !== length) throw new Error(`${label}: short reply (${used}/${length}B)`);
+  return bytes;
 }
 document.getElementById('usbConnect').onclick = async () => {
   try {
@@ -289,8 +309,9 @@ document.getElementById('usbRead').onclick = async () => {
 };
 async function closeUsb() {
   stopLive();
+  await streamClosing;
   try { await usb?.close(); } catch (e) {}
-  usb = null; pdMon = false;
+  usb = null; claimed = false; pdMon = false;
   document.getElementById('liveStat').textContent = 'disconnected';
   log('WebUSB closed');
 }
@@ -393,6 +414,7 @@ async function openUsb(d) {
   claimed = true;
 }
 async function ensureUsb() {
+  await usbRecovery;
   if (usb && usb.opened) {
     if (!claimed) { // open but never claimed (e.g. failed debug connect) — claim now or say who holds it
       try { await usb.claimInterface(0); claimed = true; }
@@ -415,6 +437,7 @@ async function startLive() {
   const how = await ensureUsb();
   if (how === 'resume') log('resumed — handle still open, no reconnect');
   stopLive();
+  await streamClosing;
   const mode = document.getElementById('liveMode').value;
   if (mode !== 'ss') { await startStream(+mode); return; }
   try { await pdMonitorEnsure(); autoPdOn = true; document.getElementById('watchStat').textContent = 'auto-pd on'; }
@@ -442,14 +465,18 @@ async function startLive() {
   await tick();
   liveTimer = setInterval(tick, ms);
 }
+let streamClosing = Promise.resolve();
 function streamTeardown() {
-  (async () => { // replies checked and logged, never throws
+  const device = usb;
+  streamClosing = streamClosing.then(async () => { // replies checked and logged, never throws
+    if (!device || !device.opened || usb !== device) return;
     try {
       await bulkCmd('STOP_GRAPH', [0x0F, 0, 0, 0]);
       await bulkCmd('DISCONNECT', [0x03, 0, 0, 0]);
       log('stream link closed');
     } catch (e) { log('stream teardown: ' + (e.message || e)); }
-  })();
+  });
+  return streamClosing;
 }
 function stopLive() {
   if (liveTimer) clearInterval(liveTimer); liveTimer = null;
@@ -620,15 +647,9 @@ async function memRead(addr, size) {
   const pkt = new Uint8Array(36);
   pkt.set([0x44, tid, 0x01, 0x01]); pkt.set(enc, 4);
   const acc = await usbExcl(async () => {
-    await usb.transferOut(1, pkt.buffer);
-    let a = new Uint8Array(0);
-    for (let i = 0; i < 6 && a.length < 20 + need; i++) {
-      const r = await usb.transferIn(1, 64);
-      const chunk = new Uint8Array(sliceBuf(r.data));
-      const nb = new Uint8Array(a.length + chunk.length);
-      nb.set(a); nb.set(chunk, a.length); a = nb;
-    }
-    return a;
+    const device = usb;
+    await device.transferOut(1, pkt.buffer);
+    return readBulkBytes(device, 20 + need, 'MEM_READ');
   });
   if (acc.length < 20 + need || acc[0] !== 0xC4) throw new Error(`MEM_READ 0x${addr.toString(16)}: short/garbled reply (${acc.length}B) — Exit PDM if a session is open`);
   log(`MEM_READ reply: ${acc.length}B`);
@@ -641,33 +662,40 @@ async function memReadHwid() {
   return (await memRead(0x40010450, 12)).slice(0, 12);
 }
 async function tryAuth(cred12, label) {
-  // req: [timestamp_ms u64][HWID 12B][random 12B], AES-ECB(Key3); ok = attr&1 && level
-  const pt = new Uint8Array(32);
-  new DataView(pt.buffer).setBigUint64(0, BigInt(Date.now()), true);
-  pt.set(cred12, 8);
-  crypto.getRandomValues(pt.subarray(20, 32));
-  const enc = await ecbCrypt(asc(AUTHKEY), pt, 'encrypt');
-  const tid = (pdTid++) & 0xFF;
-  const pkt = new Uint8Array(36);
-  pkt.set([0x4C, tid, 0x00, 0x02]); pkt.set(enc, 4);
-  let r = null;
-  for (let a = 0; a < 3; a++) {
-    r = await usbExcl(async () => {
-      await usb.transferOut(1, pkt.buffer);
-      return await usb.transferIn(1, 64);
-    });
-    if (r.data.byteLength >= 4) break; // parsed rejections are real answers — only empty replies retry
-    log(`auth ${label}: empty reply, retry ${a + 1}/3…`);
-    await new Promise(res => setTimeout(res, 300));
-  }
-  const buf = sliceBuf(r.data);
-  log(`STREAM_AUTH reply (${label}): ${r.data.byteLength}B ${hex(buf)}`);
-  if (r.data.byteLength < 4 || new Uint8Array(buf)[0] !== 0x4C) throw new Error('STREAM_AUTH: bad reply — Exit PDM if a session is open');
-  const attr = new DataView(buf).getUint16(2, true) >>> 1;
-  const level = (attr >> 1) & 3;
-  log(`auth ${label}: attr 0x${attr.toString(16)} level ${level}`);
-  // granted = nonzero level (KM002C omits the bit0 result flag KM003C sets: refuse 0x101, grant 0x102)
-  return level ? level : 0;
+  // Space requests, including cached credentials and repeated Start attempts.
+  const device = usb;
+  const reply = await usbExcl(async () => {
+    const waitMs = 1000 - (performance.now() - lastAuthT);
+    if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
+    // Generate a fresh timestamp/random challenge only for a new request.
+    const pt = new Uint8Array(32);
+    new DataView(pt.buffer).setBigUint64(0, BigInt(Date.now()), true);
+    pt.set(cred12, 8);
+    crypto.getRandomValues(pt.subarray(20, 32));
+    const pkt = new Uint8Array(36);
+    pkt.set([0x4C, (pdTid++) & 0xFF, 0x00, 0x02]);
+    pkt.set(await ecbCrypt(asc(AUTHKEY), pt, 'encrypt'), 4);
+    lastAuthT = performance.now();
+    await device.transferOut(1, pkt.buffer);
+    // Drain the entire encrypted echo before sending another command.
+    return readBulkBytes(device, 36, 'STREAM_AUTH');
+  });
+  log(`STREAM_AUTH reply (${label}): ${reply.length}B ${hex(reply.buffer)}`);
+  const result = parseAuthReply(reply.buffer, device.productId);
+  log(`auth ${label}: raw 0x${result.raw.toString(16)} level ${result.level}`);
+  return result.level;
+}
+let lastAuthT = -Infinity;
+function parseAuthReply(buf, productId) {
+  if (buf.byteLength !== 36 || new Uint8Array(buf)[0] !== 0x4C) throw new Error('STREAM_AUTH: bad reply');
+  const raw = new DataView(buf).getUint16(2, true);
+  // STREAM_AUTH has a special raw header, not an ordinary control attribute.
+  // KM003C: 0x0201 refused, 0x0203 granted (result bit 0, level bits 1-2).
+  // KM002C capture: 0x0202 refused, 0x0204 granted (shifted, no result flag).
+  const attr = productId === 0x61 ? raw >>> 1 : raw;
+  const level = (attr >>> 1) & 3;
+  const ok = productId === 0x61 || (attr & 1) !== 0;
+  return { raw, level: ok ? level : 0 };
 }
 function credKey() {
   try { return 'km003c-web.authcred.' + (usb.serialNumber || 'default'); }
@@ -798,10 +826,12 @@ async function bulkCmd(name, bytes) {
   const t = (pdTid++) & 0xFF;
   const wb = bytes.slice(); wb[1] = t;
   const r = await usbExcl(async () => {
-    await usb.transferOut(1, new Uint8Array(wb).buffer);
-    return await usb.transferIn(1, 64);
+    const device = usb;
+    await device.transferOut(1, new Uint8Array(wb).buffer);
+    return readBulkBytes(device, 4, name);
   });
-  const tp = r.data.byteLength ? new Uint8Array(sliceBuf(r.data))[0] & 0x7F : -1;
+  if (r[1] !== t) throw new Error(`${name}: mismatched reply id ${r[1]} (expected ${t})`);
+  const tp = r[0] & 0x7F;
   log(`usb: ${name} -> ${tp === 5 ? 'ACCEPT' : tp === 6 ? 'REJECT' : tp < 0 ? 'empty' : 'type 0x' + tp.toString(16)} (id ${t})`);
   return tp;
 }
@@ -829,7 +859,7 @@ async function startStream(idx) {
     document.getElementById('liveStat').textContent = 'stream init failed: ' + (e.message || e);
     log('stream init failed: ' + (e.message || e) + ' — single-shot still works; Exit PDM if a session is open');
     if (e && e.stack) log('stack: ' + String(e.stack).split('\n').slice(0, 4).join(' | '));
-    streamTeardown();
+    await streamTeardown();
     return;
   }
   streamOn = true;
@@ -867,7 +897,7 @@ async function startStream(idx) {
         `${SPS_OF[idx]} SPS · ${effSps.toFixed(0)} eff · ${dropped.toFixed(0)} dropped · ${n} samples`;
     } catch (e) {
       streamOn = false;
-      streamTeardown(); // teardown runs on error stops too, so the next Start finds a clean device
+      await streamTeardown(); // finish before the next Start can open a new session
       stopLive();
       const gone = !usb || !usb.opened;
       if (gone) { usb = null; pdMon = false; }
@@ -974,6 +1004,41 @@ let limCache = {}, limSig = ''; // sticky axis limits: grow instantly, relax slo
 let hoverX = null; // last cursor x (css px) over the graph; null = not hovering
 let tipSide = 1; // tooltip side of cursor: 1 = right, -1 = left (sticky, flips only when it must)
 let lastOverlay = 0, lastTipHtml = ''; // throttle parked refresh; skip DOM churn when content is identical
+function drawTrace(ctx, data, key, X, Y, left, cols) {
+  ctx.beginPath();
+  if (data.length <= cols * 6) {
+    data.forEach((p, i) => { const x = X(p.t), y = Y(p[key]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke();
+    return;
+  }
+  const cmin = new Float64Array(cols).fill(Infinity), cmax = new Float64Array(cols).fill(-Infinity);
+  const first = new Int32Array(cols).fill(-1), last = new Int32Array(cols).fill(-1);
+  for (let i = 0; i < data.length; i++) {
+    const p = data[i], cx = Math.max(0, Math.min(cols - 1, Math.floor(X(p.t) - left)));
+    if (first[cx] < 0) first[cx] = i;
+    last[cx] = i;
+    cmin[cx] = Math.min(cmin[cx], p[key]); cmax[cx] = Math.max(cmax[cx], p[key]);
+  }
+  // Connect each column's first/last samples in time order. Sparse history
+  // stays a line even when a newer dense burst triggers the envelope path.
+  let started = false;
+  for (let cx = 0; cx < cols; cx++) {
+    if (first[cx] < 0) continue;
+    const a = data[first[cx]], b = data[last[cx]];
+    const x = X(a.t), y = Y(a[key]);
+    if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; }
+    if (first[cx] !== last[cx]) ctx.lineTo(X(b.t), Y(b[key]));
+  }
+  ctx.stroke();
+  // Preserve every column's extrema without drawing every raw sample.
+  ctx.beginPath();
+  for (let cx = 0; cx < cols; cx++) {
+    if (first[cx] < 0 || cmin[cx] === cmax[cx]) continue;
+    const x = left + cx + 0.5;
+    ctx.moveTo(x, Y(cmax[cx])); ctx.lineTo(x, Y(cmin[cx]));
+  }
+  ctx.stroke();
+}
 function drawGraph() {
   const cv = document.getElementById('graph');
   const W = cv.clientWidth || 880, H = cv.clientHeight || 220;
@@ -1011,8 +1076,8 @@ function drawGraph() {
     ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + ih); ctx.stroke();
   }
   lastPlot = null;
-  limCache = {};
   if (!data.length || !series.length) {
+    limCache = {};
     if (!series.length) document.getElementById('graphLegend').innerHTML = '<small>all series off — tick a series above.</small>';
     clearOverlay();
     return;
@@ -1055,33 +1120,14 @@ function drawGraph() {
   for (const tk of yTicks(lim[gridKey][0], lim[gridKey][1])) {
     ctx.beginPath(); ctx.moveTo(padL, gY(tk.v)); ctx.lineTo(plotRight, gY(tk.v)); ctx.stroke();
   }
-  // traces: sparse data draws a polyline; dense data draws a min/max envelope
-  // per pixel column (stable under scroll — no decimation-aliasing shimmer).
-  // The envelope needs several samples per column: near ~1-2 per column,
-  // timestamp jitter leaves beat-phase columns empty and the trace breaks
-  // into dashes — so the polyline (which bridges sub-column gaps) owns
-  // everything up to 6 samples per column.
+  // Dense traces keep a connected line plus a per-pixel min/max envelope.
+  // Raw samples stay in history for hover and CSV; draw work scales with width.
   const clampY = (y) => Math.min(padT + ih, Math.max(padT, y));
   const cols = Math.max(1, Math.floor(iw));
   for (const s of series) {
     const Y = Yof((s.share && vOn) ? 'vbus' : s.key);
-    ctx.strokeStyle = s.col; ctx.lineWidth = 1.5; ctx.lineCap = 'butt'; ctx.beginPath();
-    if (data.length <= cols * 6) {
-      data.forEach((p, i) => { const x = X(p.t), y = clampY(Y(p[s.key])); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
-    } else {
-      ctx.lineCap = 'round'; // flat columns are zero-height: butt caps paint nothing, round paints a dot
-      const cmin = new Float64Array(cols).fill(Infinity), cmax = new Float64Array(cols).fill(-Infinity);
-      for (const p of data) {
-        let cx = Math.floor(X(p.t) - padL); if (cx < 0) cx = 0; else if (cx >= cols) cx = cols - 1;
-        const v = p[s.key]; if (v < cmin[cx]) cmin[cx] = v; if (v > cmax[cx]) cmax[cx] = v;
-      }
-      for (let cx = 0; cx < cols; cx++) {
-        if (cmin[cx] === Infinity) continue;
-        const x = padL + cx + 0.5;
-        ctx.moveTo(x, clampY(Y(cmax[cx]))); ctx.lineTo(x, clampY(Y(cmin[cx])));
-      }
-    }
-    ctx.stroke();
+    ctx.strokeStyle = s.col; ctx.lineWidth = 1.5; ctx.lineCap = 'butt';
+    drawTrace(ctx, data, s.key, X, v => clampY(Y(v)), padL, cols);
   }
   ctx.lineWidth = 1;
   // Y axes in series colours: V left, one lane each on the right (shared CC lane in grey, own colours when solo)

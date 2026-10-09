@@ -1,6 +1,6 @@
 # km003c-web — POWER-Z on browser
 
-Talk to ChargerLab POWER-Z KM002C (`VID 0x5FC9 / PID 0x0061`) without the
+Talk to ChargerLab POWER-Z KM002C/KM003C (`VID 0x5FC9 / PID 0x0061/0x0063`) without the
 Windows-only `Mtools.exe` from the manufacturer, directly in browser using WinUSB.
 
 Needs Chrome/Chromium/Edge, sadly firefox doesn't support WebUSB.
@@ -37,11 +37,23 @@ Live: https://jfessard.github.io/km003c-web/ — or open `index.html` directly (
 ## Devices
 
 - KM002C = `0x0061` Fully tested.
-- KM003C = `0x0063` should work unmodified: all discovery filters are
-  VID-only (`0x5FC9`), the 4-byte command protocol is shared across the
-  family. Untested end-to-end; treat the SUB
+- KM003C = `0x0063` Single-shot and 1000 SPS stream startup confirmed on macOS.
+  Streaming authentication
+  uses the KM003C raw result/level bits; KM002C uses a different bit shift.
+  All discovery filters are VID-only (`0x5FC9`). Treat the SUB
   tile (CC2/D+/D-) as suspect on KM003C (ADC offsets moved across
   firmwares) — VBUS/IBUS are the safe core.
+
+On macOS, use Chrome/Chromium/Edge with WebUSB; no serial port grant is needed
+for live meters or streaming. After a USB timeout, the app closes the handle to
+cancel pending transfers. Press START to re-attach.
+
+## Protocol regression checks
+
+Run `node tests/stream.test.js` to check model-specific authentication, fragmented
+and empty USB transfers, request spacing, timeout recovery, and stream teardown.
+Run `node tests/graph.test.js` to check mixed sample densities, peak preservation,
+bounded drawing work, and stable graph axes.
 
 ## Credits
 
