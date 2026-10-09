@@ -1,4 +1,4 @@
-# re-charge — POWER-Z on browser
+# km003c-web — POWER-Z on browser
 
 Talk to ChargerLab POWER-Z KM002C (`VID 0x5FC9 / PID 0x0061`) without the
 Windows-only `Mtools.exe` from the manufacturer, directly in browser using WinUSB.
@@ -7,7 +7,7 @@ Needs Chrome/Chromium/Edge, sadly firefox doesn't support WebUSB.
 
 **[Try it here](https://jfessard.github.io/km003c-web/)**
 
-![re-charge live view](docs/screenshot.png)
+![km003c-web live view](docs/screenshot.png)
 
 ## Layout
 

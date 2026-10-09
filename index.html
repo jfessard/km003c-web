@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>re-charge — POWER-Z browser app</title>
+<title>km003c-web — POWER-Z browser app</title>
 <style>
 :root{--bg:#191b1e;--card:#23262b;--line:#33373e;--txt:#e8eaed;--mut:#9aa0a6;--acc:#4a9fd8}
 *{box-sizing:border-box}
@@ -71,7 +71,7 @@ details.card summary{color:#cfd3d8}
 </style>
 </head>
 <body>
-<header><h1>re-charge <span class="pill" id="devPill">POWER-Z</span> <span id="devSerial" style="font-size:.85rem;color:var(--mut)"></span></h1></header>
+<header><h1>km003c-web <span class="pill" id="devPill">POWER-Z</span> <span id="devSerial" style="font-size:.85rem;color:var(--mut)"></span></h1></header>
 
 <section class="card">
 <div id="dash">
@@ -102,6 +102,8 @@ details.card summary{color:#cfd3d8}
 <label class="ser" style="--c:#4a9fd8"><input type="checkbox" id="gP" checked>W</label>
 <label class="ser" style="--c:#e6c34a" title="CC1 — shares the V scale when V is on, else fixed 0–3V"><input type="checkbox" id="gCC1">CC1</label>
 <label class="ser" style="--c:#9a7bd4" title="CC2 — shares the V scale when V is on, else fixed 0–3V"><input type="checkbox" id="gCC2">CC2</label>
+<label class="ser" style="--c:#f0883e" title="D+ — shares the V scale when V is on, else fixed 0–3V"><input type="checkbox" id="gDP">D+</label>
+<label class="ser" style="--c:#39c5cf" title="D- — shares the V scale when V is on, else fixed 0–3V"><input type="checkbox" id="gDM">D-</label>
 <label class="chk" title="Zero-based: every Y axis starts at 0, so trace heights show true proportions. Untick to fit each axis to its data instead — small ripple then fills the graph (good for inspecting noise, but exaggerates it)."><input type="checkbox" id="gZero" checked>zero-based</label>
 <button id="graphClear">Clear</button>
 <button id="csvExport">Export CSV</button>
@@ -185,7 +187,7 @@ details.card summary{color:#cfd3d8}
 </div>
 </details>
 
-<footer style="margin:1.5rem 0 .5rem;text-align:center;color:var(--mut);font-size:.8rem"><small>re-charge — <a href="https://github.com/jfessard/km003c-web" style="color:var(--acc)">source on GitHub</a></small></footer>
+<footer style="margin:1.5rem 0 .5rem;text-align:center;color:var(--mut);font-size:.8rem"><small>km003c-web — <a href="https://github.com/jfessard/km003c-web" style="color:var(--acc)">source on GitHub</a></small></footer>
 
 <script>
 const log = (...a) => {
@@ -322,8 +324,10 @@ function paintLive(d) {
   const idirTip = idir === '→' ? 'current flows out of the male connector (male→female)' : idir ? 'current flows into the male connector (female→male)' : 'no significant current — no direction';
   document.getElementById('vIbus').innerHTML = `${fmt(iAbs)} <span class="unit">A</span>${idir ? ` <span class="unit" title="${idirTip}" style="font-size:.85rem">${idir}</span>` : ''}`;
   document.getElementById('vPwr').innerHTML = `${fmt(d.vbus * iAbs)} <span class="unit">W</span>`;
+  const tC = d.tempC != null ? d.tempC : lastTempC; // stream frames carry no temp — hold the last single-shot reading
+  const tOk = tC != null && tC > -100 && tC < 150; // raw 0x8000 (-256°C) = no sensor data
   document.getElementById('vSub').innerHTML =
-    `DP:${d.vdp.toFixed(3)}V&nbsp;&nbsp;CC1:${d.vcc1.toFixed(3)}V<br>DM:${d.vdm.toFixed(3)}V&nbsp;&nbsp;CC2:${d.vcc2.toFixed(3)}V`;
+    `DP:${d.vdp.toFixed(3)}V&nbsp;&nbsp;CC1:${d.vcc1.toFixed(3)}V<br>DM:${d.vdm.toFixed(3)}V&nbsp;&nbsp;CC2:${d.vcc2.toFixed(3)}V<br>TEMP:${tOk ? tC.toFixed(1) + '°C' : '—'}`;
 }
 async function liveOnce() {
   return usbExcl(async () => {
@@ -656,8 +660,8 @@ async function tryAuth(cred12, label) {
   return level ? level : 0;
 }
 function credKey() {
-  try { return 'recharge.authcred.' + (usb.serialNumber || 'default'); }
-  catch (e) { return 'recharge.authcred.default'; }
+  try { return 'km003c-web.authcred.' + (usb.serialNumber || 'default'); }
+  catch (e) { return 'km003c-web.authcred.default'; }
 }
 function loadCred() {
   try {
@@ -866,7 +870,7 @@ async function startStream(idx) {
 }
 
 // ---- Live graph (canvas, no deps): per-series auto-scale, fed by pushSample ----
-const GCOL = { vbus: '#3ddc97', ibus: '#e06c7c', pwr: '#4a9fd8', cc1: '#e6c34a', cc2: '#9a7bd4' };
+const GCOL = { vbus: '#3ddc97', ibus: '#e06c7c', pwr: '#4a9fd8', cc1: '#e6c34a', cc2: '#9a7bd4', vdp: '#f0883e', vdm: '#39c5cf' };
 function graphSeries() {
   return [
     { key: 'vbus', on: document.getElementById('gV').checked, unit: 'V', col: GCOL.vbus, dec: 3 },
@@ -874,6 +878,8 @@ function graphSeries() {
     { key: 'pwr', on: document.getElementById('gP').checked, unit: 'W', col: GCOL.pwr, dec: 3 },
     { key: 'vcc1', on: document.getElementById('gCC1').checked, unit: 'V', ax: 'CC1', col: GCOL.cc1, dec: 3, fixed: [0, 3], share: 'vbus', grp: 'cc' },
     { key: 'vcc2', on: document.getElementById('gCC2').checked, unit: 'V', ax: 'CC2', col: GCOL.cc2, dec: 3, fixed: [0, 3], share: 'vbus', grp: 'cc' },
+    { key: 'vdp', on: document.getElementById('gDP').checked, unit: 'V', ax: 'D+', col: GCOL.vdp, dec: 3, fixed: [0, 3], share: 'vbus', grp: 'cc' },
+    { key: 'vdm', on: document.getElementById('gDM').checked, unit: 'V', ax: 'D-', col: GCOL.vdm, dec: 3, fixed: [0, 3], share: 'vbus', grp: 'cc' },
   ].filter(s => s.on);
 }
 let zoomMs = 0; // wheel-zoom span override, ms; 0 = follow the window select
@@ -1140,7 +1146,7 @@ function drawOverlay(xCss) {
   box.style.left = Math.max(4, Math.min(W - bw - 4, bx)) + 'px';
   box.style.top = Math.max(4, Math.min(H - bh - 4, P.padT + 4)) + 'px';
 }
-['gV', 'gI', 'gP', 'gCC1', 'gCC2', 'gZero'].forEach(id =>
+['gV', 'gI', 'gP', 'gCC1', 'gCC2', 'gDP', 'gDM', 'gZero'].forEach(id =>
   document.getElementById(id).addEventListener('change', drawGraph));
 document.getElementById('graphWindow').addEventListener('change', () => { zoomMs = 0; viewEndT = 0; drawGraph(); updateGraphStat(); });
 window.addEventListener('resize', drawGraph);
@@ -1219,7 +1225,7 @@ document.getElementById('csvExport').onclick = () => {
   for (const p of hist) rows.push(
     `${new Date(p.t).toISOString()},${p.t - t0},${p.vbus.toFixed(6)},${p.ibus.toFixed(6)},${p.pwr.toFixed(6)},` +
     `${p.vbusAvg.toFixed(6)},${p.ibusAvg.toFixed(6)},${p.tempC == null ? 'NaN' : p.tempC.toFixed(2)},${p.vcc1.toFixed(4)},${p.vcc2.toFixed(4)},${p.vdp.toFixed(4)},${p.vdm.toFixed(4)}`);
-  downloadCsv(`recharge-${new Date(t0).toISOString().replace(/[:.]/g, '-')}.csv`, rows.join('\n') + '\n');
+  downloadCsv(`km003c-web-${new Date(t0).toISOString().replace(/[:.]/g, '-')}.csv`, rows.join('\n') + '\n');
   log(`exported ${hist.length} samples to CSV`);
 };
 
@@ -1334,7 +1340,7 @@ document.getElementById('pdCsv').onclick = () => {
     const lo = p.pps ? p.pps[0].toFixed(2) : (p.v0 != null ? p.v0.toFixed(2) : '');
     rows.push(`${i + 1},${p.t},${(p.v || 0).toFixed(3)},${p.a != null ? p.a.toFixed(3) : ''},${w.toFixed(2)},${lo},${p.w != null && p.a == null ? p.w.toFixed(1) : ''}`);
   });
-  downloadCsv(`recharge-pdos-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`, rows.join('\n') + '\n');
+  downloadCsv(`km003c-web-pdos-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`, rows.join('\n') + '\n');
   log(`exported ${pdos.length} PDOs to CSV`);
 };
 
