@@ -1562,8 +1562,9 @@ async function pdPollOnce() {
     const c = sniffContract(sliceBuf(r.data));
     if (!c) return null;
     // detach first: a poll can carry a stale 0x22 alongside a fresh contract,
-    // so clear before merging this poll's words/Request below.
-    if (c.events.includes(0x22)) clearContract('PD detach event on wire — PDO table + latched contract cleared');
+    // so clear before merging this poll's words/Request below. Watch-only:
+    // outside Watch wire a manual Get-contract table must survive.
+    if (watching && c.events.includes(0x22)) clearContract('PD detach event on wire — PDO table + latched contract cleared');
     let added = 0;
     for (const msg of c.msgs) added += mergePdoDecoded(msg.map(decodePdo), 'wire');
     let changed = added > 0;
@@ -1677,7 +1678,9 @@ function noteVbusPresence(v) {
   if (v < 1.0) {
     mismatchSince = 0;
     if (!lowSince) lowSince = Date.now();
-    if (Date.now() - lowSince > 2000) clearContract('upstream gone (VBUS <1V for 2s) — PDO table + latched contract cleared');
+    // Watch-only: a manual Get-contract table must survive VBUS loss (PDM
+    // blip, meter not inline) until Clear, a new read, or another Watch.
+    if (watching && Date.now() - lowSince > 2000) clearContract('upstream gone (VBUS <1V for 2s) — PDO table + latched contract cleared');
     lastVbusSeen = v;
     return;
   }
