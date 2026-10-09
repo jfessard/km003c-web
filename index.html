@@ -185,6 +185,8 @@ details.card summary{color:#cfd3d8}
 </div>
 </details>
 
+<footer style="margin:1.5rem 0 .5rem;text-align:center;color:var(--mut);font-size:.8rem"><small>re-charge — <a href="https://github.com/jfessard/km003c-web" style="color:var(--acc)">source on GitHub</a></small></footer>
+
 <script>
 const log = (...a) => {
   const el = document.getElementById('log');
@@ -645,8 +647,7 @@ async function tryAuth(cred12, label) {
     await new Promise(res => setTimeout(res, 300));
   }
   const buf = sliceBuf(r.data);
-  log(`STREAM_AUTH reply (${label}): ${r.data.byteLength}B`);
-  log(`STREAM_AUTH reply: ${r.data.byteLength}B`);
+  log(`STREAM_AUTH reply (${label}): ${r.data.byteLength}B ${hex(buf)}`);
   if (r.data.byteLength < 4 || new Uint8Array(buf)[0] !== 0x4C) throw new Error('STREAM_AUTH: bad reply — Exit PDM if a session is open');
   const attr = new DataView(buf).getUint16(2, true) >>> 1;
   const level = (attr >> 1) & 3;

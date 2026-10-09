@@ -1,4 +1,4 @@
-# re-charge — POWER-Z devices on Mac + Browser
+# re-charge — POWER-Z on browser
 
 Talk to ChargerLab POWER-Z KM002C (`VID 0x5FC9 / PID 0x0061`) without the
 Windows-only `Mtools.exe` from the manufacturer, directly in browser using WinUSB.
@@ -13,12 +13,13 @@ Needs Chrome/Chromium/Edge, sadly firefox doesn't support WebUSB.
 index.html            Single-file browser app: tiles, graph, contract, sniffer, debug
 71-powerz.rules     Linux udev rule for 5FC9:0061/0063
 docs/PROTOCOL.md      Byte maps, init sequence, R3.2 PDO layouts, quirks
+docs/upstream-protocol-reference.md  Vendored upstream KM003C protocol reference (do not edit)
 docs/screenshot.png   Live view screenshot (shown above)
 ```
 
 ## Browser app (Chromium, single static file)
 
-Open `index.html` directly (`file://` ) or the linked github page.
+Live: https://jfessard.github.io/km003c-web/ — or open `index.html` directly (`file://`).
 
 - **Live meters** — VBUS/IBUS/PWR tiles with current direction, up to 10×/s, or 1000SPS in proprietary mode.
 - **Live graph** — V/A/W plus optional CC lines, hover values, zoom, CSV export, 1000 SPS streaming mode.
