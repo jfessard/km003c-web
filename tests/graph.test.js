@@ -28,6 +28,7 @@ function harness() {
   nodes.graphWrap = { getBoundingClientRect: () => ({ left: 0 }), addEventListener: (event, fn) => { handlers[event] = fn; } };
   const api = new Function('nodes', `
     const hist = [], window = { devicePixelRatio: 1 }, performance = { now: () => 0 };
+    let liveTimer = null, streamOn = false, liveStarting = false;
     const document = { getElementById: id => nodes[id] };
     function clearOverlay() {} function drawOverlay() {}
     ${graphSource}
@@ -35,6 +36,7 @@ function harness() {
     return {
       drawTrace, drawGraph, plot: () => lastPlot,
       setHistory: points => { hist.splice(0, hist.length, ...points); },
+      setCapture: mode => { streamOn = mode === 'stream'; liveTimer = mode === 'poll' ? 1 : null; },
       wheel: (x, deltaY) => nodes.graphWrap.wheel(x, deltaY),
       timeAt: x => lastPlot.t1 - (1 - (x - lastPlot.padL) / lastPlot.iw) * lastPlot.spanMs
     };
@@ -122,6 +124,37 @@ function runTests() {
         assert(Math.abs(api.timeAt(x) - target) < 1e-6, 'History bounds do not shift the cursor anchor');
       }
     }
+  });
+  test('zooming back out resumes live scrolling without clearing history', () => {
+    for (const mode of ['stream', 'poll']) {
+      const { api } = harness(), points = Array.from({ length: 601 }, (_, i) => ({ t: 100000 + i * 100, vbus: 5 }));
+      api.setCapture(mode); api.setHistory(points); api.drawGraph();
+      const plot = api.plot(), x = plot.padL + plot.iw * 0.4;
+      api.wheel(x, -100); api.wheel(x, -100);
+      points.push({ t: 165000, vbus: 5 }); api.setHistory(points); api.drawGraph();
+      const cursorTime = api.timeAt(x);
+      api.wheel(x, 100);
+      assert(Math.abs(api.timeAt(x) - cursorTime) < 1e-6, 'Partial zoom-out keeps the cursor anchor');
+      api.wheel(x, 100);
+      equal(api.plot().t1, 165000, 'Returning to the selected window follows the latest sample');
+      points.push({ t: 170000, vbus: 5 }); api.setHistory(points); api.drawGraph();
+      equal(api.plot().t1, 170000, 'Subsequent samples scroll the graph');
+      equal(api.plot().spanMs, 30000, 'Selected window is restored');
+      equal(points.length, 603, 'History is retained');
+    }
+  });
+  test('zooming out to all resumes following and includes later history', () => {
+    const { api, nodes } = harness(), points = Array.from({ length: 101 }, (_, i) => ({ t: 100000 + i * 100, vbus: 5 }));
+    nodes.graphWindow.value = '0'; api.setCapture('stream'); api.setHistory(points); api.drawGraph();
+    const plot = api.plot(), x = plot.padL + plot.iw * 0.5;
+    api.wheel(x, -100);
+    points.push({ t: 111000, vbus: 5 }); api.setHistory(points); api.drawGraph();
+    api.wheel(x, 100); api.wheel(x, 100);
+    equal(api.plot().t1, 111000, 'All returns to the live edge');
+    assert(nodes.graphStat.textContent.includes(' · all'), 'All no longer has a fixed zoom span');
+    points.push({ t: 115000, vbus: 5 }); api.setHistory(points); api.drawGraph();
+    equal(api.plot().t1, 115000, 'All follows later samples');
+    equal(api.plot().spanMs, 15000, 'All expands with new history');
   });
   return passed;
 }

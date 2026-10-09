@@ -1363,7 +1363,11 @@ document.getElementById('graphWrap').addEventListener('wheel', (e) => {
   const maxSpan = selMs || Math.max(full, 1000);
   const span2 = Math.min(Math.max(cur * (e.deltaY > 0 ? 1.25 : 1 / 1.25), 1000), maxSpan);
   const P = lastPlot;
-  if (P && hist.length) {
+  if (e.deltaY > 0 && span2 >= maxSpan - 1e-6 && (liveTimer || streamOn || liveStarting)) {
+    // Fully zooming out during capture restores the selected window and live
+    // edge. In 'all', clearing the span override also lets new history expand it.
+    zoomMs = 0; viewEndT = 0;
+  } else if (P && hist.length) {
     const r = document.getElementById('graphWrap').getBoundingClientRect();
     const fx = Math.min(1, Math.max(0, (e.clientX - r.left - P.padL) / P.iw));
     const tc = P.t1 - (1 - fx) * P.spanMs; // time under cursor — stays put

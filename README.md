@@ -54,7 +54,8 @@ Run `node tests/stream.test.js` to check model-specific authentication, fragment
 and empty USB transfers, request spacing, timeout recovery, mode switching,
 startup cancellation, session reset ordering, and stream teardown.
 Run `node tests/graph.test.js` to check mixed sample densities, peak preservation,
-bounded drawing work, stable graph axes, and cursor-centered zoom.
+bounded drawing work, stable graph axes, cursor-centered zoom, and resuming live
+scrolling when zooming fully out.
 Run `node tests/data.test.js` to check PDM cleanup, fragmented serial replies,
 PDO snapshot numbering, and stream timestamps across gaps and counter wrap.
 
