@@ -5,6 +5,8 @@ Windows-only `Mtools.exe` from the manufacturer, directly in browser using WinUS
 
 Needs Chrome/Chromium/Edge, sadly firefox doesn't support WebUSB.
 
+**[Try it here](https://jfessard.github.io/km003c-web/)**
+
 ![re-charge live view](docs/screenshot.png)
 
 ## Layout
